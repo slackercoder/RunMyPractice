@@ -3,14 +3,15 @@ import SwiftData
 
 /// Read-only view of a practice template (the "view" part of Functional Spec §5.4).
 ///
-/// The interactive parts arrive later:
-/// - Editing/adding activities and drills: M3
+/// The interactive parts:
+/// - Editing/adding activities and drills: PracticeEditorView (M3)
 /// - Live execution (teams, check-offs, scores): M4
 struct PracticeDetailView: View {
     var practice: Practice
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingDeleteConfirmation = false
+    @State private var isEditing = false
 
     var body: some View {
         List {
@@ -22,7 +23,7 @@ struct PracticeDetailView: View {
 
             if practice.orderedActivities.isEmpty {
                 Section {
-                    Text("No activities yet — the practice editor arrives in M3.")
+                    Text("No activities yet — edit this practice to add some.")
                         .foregroundStyle(.secondary)
                 }
             } else {
@@ -37,6 +38,13 @@ struct PracticeDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isEditing = true
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+            }
+            ToolbarItem(placement: .destructiveAction) {
                 Button(role: .destructive) {
                     showingDeleteConfirmation = true
                 } label: {
@@ -55,6 +63,9 @@ struct PracticeDetailView: View {
             .disabled(practice.orderedActivities.isEmpty)
             .padding()
             .background(.bar)
+        }
+        .fullScreenCover(isPresented: $isEditing) {
+            PracticeEditorView(practice: practice)
         }
         .confirmationDialog(
             "Delete this practice?",

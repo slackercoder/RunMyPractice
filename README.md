@@ -12,7 +12,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 |---|---|---|
 | M1 | Project scaffold, SwiftData models, app shell | ✅ done (v0.1.0) |
 | M2 | Home screen (list / search / create) + player roster | ✅ done (v0.2.0) |
-| M3 | Practice editor (activities → drills, scoring config) | ⬜ planned |
+| M3 | Practice editor (activities → drills, scoring config) | ✅ done (v0.3.0) |
 | M4 | Execute practice (teams, check-offs, scores, session records) | ⬜ planned |
 | M5 | Sync worker + .NET Web API backend | ⬜ planned |
 

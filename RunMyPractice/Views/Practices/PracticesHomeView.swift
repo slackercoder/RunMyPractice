@@ -2,14 +2,16 @@ import SwiftUI
 import SwiftData
 
 /// Home screen (Functional Spec §5.2): the list of available practices with
-/// search by title and create-new. Tapping a practice opens its detail view
-/// (M2); live execution of a practice arrives in M4.
+/// search by title and create-new. "Create" opens the full practice editor
+/// (M3) with a blank draft; live execution of a practice arrives in M4.
 struct PracticesHomeView: View {
     @Query(sort: \Practice.createDate, order: .reverse)
     private var practices: [Practice]
 
+    @Environment(\.modelContext) private var modelContext
+
     @State private var searchText = ""
-    @State private var showingCreateSheet = false
+    @State private var newPracticeDraft: Practice?
 
     private var filteredPractices: [Practice] {
         guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else { return practices }
@@ -26,7 +28,7 @@ struct PracticesHomeView: View {
                         Text("Create your first practice to get started.")
                     } actions: {
                         Button("Create Practice") {
-                            showingCreateSheet = true
+                            startNewPractice()
                         }
                         .buttonStyle(.borderedProminent)
                     }
@@ -41,14 +43,14 @@ struct PracticesHomeView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showingCreateSheet = true
+                        startNewPractice()
                     } label: {
                         Label("New Practice", systemImage: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingCreateSheet) {
-                CreatePracticeSheet()
+            .fullScreenCover(item: $newPracticeDraft) { practice in
+                PracticeEditorView(practice: practice)
             }
         }
     }
@@ -75,5 +77,13 @@ struct PracticesHomeView: View {
         let activityText = count == 1 ? "1 activity" : "\(count) activities"
         guard !practice.orderedActivities.isEmpty else { return activityText }
         return "\(activityText) · \(practice.totalTimeInMinutes) min"
+    }
+
+    /// Creates a blank practice (inserted but unsaved) and opens the editor
+    /// with it. Cancel in the editor rolls back the draft; Done saves it.
+    private func startNewPractice() {
+        let practice = Practice(title: "New Practice")
+        modelContext.insert(practice)
+        newPracticeDraft = practice
     }
 }
