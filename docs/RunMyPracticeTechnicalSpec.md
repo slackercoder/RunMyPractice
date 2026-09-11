@@ -1,0 +1,392 @@
+# Technical Specification Document: Practice Tracking Application
+
+## 1. Document Metadata & Changelog
+* **Author(s):** [Your Name]
+* **Status:** Draft
+* **Date:** September 10, 2026
+* **Version:** 1.2.0
+
+| Version | Date | Description | Author |
+| :--- | :--- | :--- | :--- |
+| 1.0.0 | 2026-09-10 | Initial Core Architecture Draft | [Name] |
+| 1.1.0 | 2026-09-10 | Refined Activity, Drill, and Scoring Logic | [Name] |
+| 1.2.0 | 2026-09-10 | Replaced backend schema with Practice/PracticeSession model; updated SwiftData models (4.1) and sync payload (6) to match | [Name] |
+
+---
+
+## 2. System Architecture & High-Level Design
+* **Architectural Pattern:** Offline-First Client/Server architecture. 
+* **Client Architecture:** MVVM (Model-View-ViewModel) using SwiftUI and SwiftData for unified local state management.
+* **Sync Strategy:** The local SwiftData container acts as the single source of truth for the user interface. A local background worker monitors network availability and manages an idempotent, unidirectional (push-only) queue to transmit structural practice records to a `.NET Web API`.
+* **Data Privacy Boundaries:** Zero PII storage. Athletes are assigned unique strings (e.g., nicknames, position codes like "Lead A", or random numbers) configured directly by the coach. 
+
+---
+
+## 3. Technology Stack
+* **Frontend Mobile (Initial Target):** iOS / iPadOS via native SwiftUI.
+* **Local Database Store:** SwiftData framework (backed by a localized SQLite storage sandbox).
+* **Remote Backend API:** .NET Web API (C#) extended with sync endpoints.
+* **Remote Database Store:** SQL Server relational schema mapping.
+* **Future Expansion Targets:** Android (Kotlin Multiplatform or Flutter) and Web frontends mapping back to the same schema boundaries.
+
+---
+
+## 4. Generalized Data Models & Architectural Strategy
+To ensure the application can scale from curling to any other sporting discipline, sports-specific entities are abstracted into four explicit hierarchies: 
+`Sessions ➔ Activities (Segments) ➔ Drills ➔ Teams`.
+
+### Individual vs. Team Drill Simplification
+To avoid complex relational data configurations or polymorphism when handling individual versus team drills, **all drills are evaluated using a Team context**. For individual drills, the application transparently provisions a "Team of 1" in the background without requiring user input or additional layout overhead.
+
+### 4.1 Client-Side SwiftData Models
+Every model carries a client-generated `id: UUID` as its local identity (required for offline-first creation) plus an optional `remoteId: Int?` that is populated once the server assigns its `INT IDENTITY` primary key on first successful sync. Records with `remoteId == nil` are treated as not-yet-created server-side; the sync worker upserts by `id` and stores the returned `remoteId`.
+
+```swift
+import Foundation
+import SwiftData
+
+// A reusable template: a named practice plan made up of Activities/Drills.
+@Model
+final class Practice {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var title: String
+    var createdBy: String?
+    var createDate: Date
+    @Relationship var activities: [Activity] = [] // maps to PracticeActivity join rows on sync
+
+    init(title: String, createdBy: String? = nil) {
+        self.id = UUID()
+        self.title = title
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+@Model
+final class Activity {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var title: String // E.g., "Warm-up", "End-Game Scenarios"
+    var activityDescription: String?
+    var timeAllottedInMinutes: Int
+    var order: Int
+    var createdBy: String?
+    var createDate: Date
+    // Flattens the backend's DrillList indirection layer; a DrillList row is
+    // created/matched 1:1 for this Activity at sync time.
+    @Relationship(deleteRule: .cascade) var drills: [Drill] = []
+
+    init(title: String, activityDescription: String? = nil, timeAllottedInMinutes: Int, order: Int, createdBy: String? = nil) {
+        self.id = UUID()
+        self.title = title
+        self.activityDescription = activityDescription
+        self.timeAllottedInMinutes = timeAllottedInMinutes
+        self.order = order
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+@Model
+final class Drill {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var title: String // E.g., "Progressive Slides", "Draw to the Button"
+    var drillDescription: String?
+
+    // Scoring Configuration Engine
+    var isScored: Bool // False = Acknowledgement check-box only
+    var isAcknowledged: Bool // Default/template flag; per-session state lives on DrillAcknowledgement
+    var maxPoints: Int? // E.g., 10
+    var pointStep: Int? // E.g., 2 -> UI renders choice matrix: [0, 2, 4, 6, 8, 10]
+    var isCoachDrill: Bool // Coach-only drill, hidden from athlete-facing views
+    var order: Int
+    var createdBy: String?
+    var createDate: Date
+
+    init(title: String, drillDescription: String? = nil, isScored: Bool, maxPoints: Int? = nil, pointStep: Int? = nil, isCoachDrill: Bool = false, order: Int, createdBy: String? = nil) {
+        self.id = UUID()
+        self.title = title
+        self.drillDescription = drillDescription
+        self.isScored = isScored
+        self.isAcknowledged = false
+        self.maxPoints = maxPoints
+        self.pointStep = pointStep
+        self.isCoachDrill = isCoachDrill
+        self.order = order
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+@Model
+final class Team {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var teamName: String // E.g., "Team 1" or background-generated fallback for individuals
+    @Relationship var players: [Player] = []
+
+    init(teamName: String, players: [Player] = []) {
+        self.id = UUID()
+        self.teamName = teamName
+        self.players = players
+    }
+}
+
+@Model
+final class Player {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var playerName: String // E.g., "Skip A", "Lead", "Player 1"
+    var createdBy: String?
+    var createDate: Date
+
+    init(playerName: String, createdBy: String? = nil) {
+        self.id = UUID()
+        self.playerName = playerName
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+// An executed instance of a Practice, run against one or more Teams.
+@Model
+final class PracticeSession {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    @Relationship var practice: Practice?
+    var createdBy: String?
+    var createDate: Date
+    @Relationship(deleteRule: .cascade) var sessionTeams: [PracticeSessionTeam] = []
+    @Relationship(deleteRule: .cascade) var acknowledgements: [DrillAcknowledgement] = []
+    var isSynced: Bool = false
+
+    init(practice: Practice?, createdBy: String? = nil) {
+        self.id = UUID()
+        self.practice = practice
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+// Join between a PracticeSession and a participating Team; scores hang off this.
+@Model
+final class PracticeSessionTeam {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    @Relationship var team: Team?
+    @Relationship(deleteRule: .cascade) var scores: [TeamScore] = []
+
+    init(team: Team?) {
+        self.id = UUID()
+        self.team = team
+    }
+}
+
+@Model
+final class TeamScore {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    @Relationship var drill: Drill?
+    var score: Int
+    var createdBy: String?
+    var createDate: Date
+
+    init(drill: Drill?, score: Int, createdBy: String? = nil) {
+        self.id = UUID()
+        self.drill = drill
+        self.score = score
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+// Per-session, per-drill acknowledgement (unscored checkbox drills).
+@Model
+final class DrillAcknowledgement {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    @Relationship var drill: Drill?
+    var isAcknowledged: Bool
+    var createdBy: String?
+    var createDate: Date
+
+    init(drill: Drill?, isAcknowledged: Bool = true, createdBy: String? = nil) {
+        self.id = UUID()
+        self.drill = drill
+        self.isAcknowledged = isAcknowledged
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+```
+
+### 4.2 Backend SQL Schema (.NET Target)
+
+> Note: This schema separates a reusable **Practice** template (Activities/Drills defined once) from a **PracticeSession** (an executed instance of a Practice, tied to specific Teams). Scores and acknowledgements are recorded against the session/team/drill combination rather than nested under a single drill-execution record. See the callout at the end of this section for how this affects Sections 4.1 and 6.
+
+```sql
+CREATE TABLE Practice (
+    PracticeId INT IDENTITY(1,1) PRIMARY KEY,
+    Title NVARCHAR(150) NOT NULL,
+    CreatedBy NVARCHAR(100) NULL, -- TODO: confirm GUID vs identifier string
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE Activity (
+    ActivityId INT IDENTITY(1,1) PRIMARY KEY,
+    Title NVARCHAR(150) NOT NULL,
+    Description NVARCHAR(MAX) NULL,
+    TimeAllottedInMinutes INT NOT NULL,
+    [Order] INT NOT NULL,
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE PracticeActivity (
+    PracticeActivityId INT IDENTITY(1,1) PRIMARY KEY,
+    PracticeId INT NOT NULL FOREIGN KEY REFERENCES Practice(PracticeId),
+    ActivityId INT NOT NULL FOREIGN KEY REFERENCES Activity(ActivityId)
+);
+
+CREATE TABLE DrillList (
+    DrillListId INT IDENTITY(1,1) PRIMARY KEY,
+    ActivityId INT NOT NULL FOREIGN KEY REFERENCES Activity(ActivityId)
+);
+
+CREATE TABLE Drill (
+    DrillId INT IDENTITY(1,1) PRIMARY KEY,
+    DrillListId INT NOT NULL FOREIGN KEY REFERENCES DrillList(DrillListId),
+    Title NVARCHAR(150) NOT NULL,
+    Description NVARCHAR(MAX) NULL,
+    IsScored BIT NOT NULL DEFAULT 0,
+    IsAcknowledged BIT NOT NULL DEFAULT 0,
+    MaxPoints INT NULL,
+    PointStep INT NULL,
+    IsCoachDrill BIT NOT NULL DEFAULT 0,
+    [Order] INT NOT NULL,
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE Team (
+    TeamId INT IDENTITY(1,1) PRIMARY KEY,
+    TeamName NVARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Player (
+    PlayerId INT IDENTITY(1,1) PRIMARY KEY,
+    PlayerName NVARCHAR(100) NOT NULL,
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE TeamPlayer (
+    TeamPlayerId INT IDENTITY(1,1) PRIMARY KEY,
+    TeamId INT NOT NULL FOREIGN KEY REFERENCES Team(TeamId),
+    PlayerId INT NOT NULL FOREIGN KEY REFERENCES Player(PlayerId)
+);
+
+CREATE TABLE PracticeSession (
+    PracticeSessionId INT IDENTITY(1,1) PRIMARY KEY,
+    PracticeId INT NOT NULL FOREIGN KEY REFERENCES Practice(PracticeId),
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE PracticeSessionTeam (
+    PracticeSessionTeamId INT IDENTITY(1,1) PRIMARY KEY,
+    PracticeSessionId INT NOT NULL FOREIGN KEY REFERENCES PracticeSession(PracticeSessionId),
+    TeamId INT NOT NULL FOREIGN KEY REFERENCES Team(TeamId)
+);
+
+CREATE TABLE TeamScore (
+    TeamScoreId INT IDENTITY(1,1) PRIMARY KEY,
+    PracticeSessionTeamId INT NOT NULL FOREIGN KEY REFERENCES PracticeSessionTeam(PracticeSessionTeamId),
+    DrillId INT NOT NULL FOREIGN KEY REFERENCES Drill(DrillId),
+    Score INT NOT NULL,
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+
+CREATE TABLE PracticeSessionAcknowledgement (
+    PracticeSessionAcknowledgementId INT IDENTITY(1,1) PRIMARY KEY,
+    PracticeSessionId INT NOT NULL FOREIGN KEY REFERENCES PracticeSession(PracticeSessionId),
+    DrillId INT NOT NULL FOREIGN KEY REFERENCES Drill(DrillId),
+    IsAcknowledged BIT NOT NULL DEFAULT 0,
+    CreatedBy NVARCHAR(100) NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
+```
+
+> **Note:** Sections 4.1 and 6 have been updated to match this schema. Since the backend uses `INT IDENTITY` keys but the client must be able to create records offline, the client models carry a local `id: UUID` (client identity) plus an optional `remoteId: Int?` (server identity, populated after sync) — see Section 4.1 for details.
+
+---
+
+## 5. UI Elements & Dynamic Point Range Generation
+When a drill configuration sets `isScored` to true, the UI calculates the point interval option grid via the step stride function logic:
+
+```swift
+/// Generates the numeric array needed to feed SwiftUI Pickers or Segmented Elements.
+func generateScoreOptions(max: Int, step: Int) -> [Int] {
+    stride(from: 0, through: max, by: step).map { $0 }
+}
+```
+
+### Swift UI Interface Contexts
+* **Ungraded Drill (`isScored == false`):** Renders a high-level list entry with an interactive toggle switch or checkbox. Toggling it creates (or updates) a `DrillAcknowledgement` record scoped to the current `PracticeSession` and this `Drill`, rather than mutating a flag on the drill itself.
+* **Graded Drill (`isScored == true`):** Loops through the `PracticeSessionTeam` entries for the current session. Renders an adaptive grid item or selector containing the generated integer increments from the step calculations; a selection creates/updates a `TeamScore` record linking that team, the drill, and the chosen score.
+
+---
+
+## 6. API Design & Core Sync Payload
+### Push Sync Endpoint: POST `/api/v1/sync/sessions`
+Accepts hierarchical payload components to update centralized data indexes. Since `Practice`, `Activity`, and `Drill` are template records (created/edited separately, typically ahead of time by the coach), the session payload references them by `id` rather than re-embedding their definitions — the session sync only needs to carry the *execution* data: which teams participated, what they scored, and which unscored drills were acknowledged. All `id` values are client-generated UUIDs; a `remoteId` is absent until the server has persisted the record and returned its assigned identity (see Section 4.1).
+
+#### Request Body Example
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+    "practiceId": "11111111-2222-3333-4444-555555555555",
+    "createdBy": "coach_jsmith",
+    "createDate": "2026-09-10T11:45:00-04:00",
+    "sessionTeams": [
+      {
+        "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+        "teamId": "00000000-1111-2222-3333-444455556666",
+        "scores": [
+          {
+            "id": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c",
+            "drillId": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+            "score": 8,
+            "createdBy": "coach_jsmith",
+            "createDate": "2026-09-10T12:05:00-04:00"
+          }
+        ]
+      }
+    ],
+    "acknowledgements": [
+      {
+        "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+        "drillId": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+        "isAcknowledged": true,
+        "createdBy": "coach_jsmith",
+        "createDate": "2026-09-10T11:50:00-04:00"
+      }
+    ]
+  }
+]
+```
+
+In this example, `practiceId` points at a "Curling Fundamentals" `Practice` whose Activities include an "Ice Warm-up" (containing the unscored "Progressive Slides" drill, referenced in `acknowledgements`) and a "Draw to Button Accuracy" activity (containing the scored "Draw Placement" drill, referenced in `sessionTeams[].scores`).
+
+#### Response
+The server responds with the `id` → `remoteId` mapping for every record it persisted (session, session-teams, scores, acknowledgements), so the client can populate `remoteId` locally and mark the session `isSynced = true`.
+
+---
+
+## 7. Risks, Constraints, and Assumptions
+* **Dual-Key Sync Strategy:** Because the backend uses `INT IDENTITY` primary keys while the offline-first client must create valid local records without network access, every synced entity carries both a client-generated `id: UUID` and a server-assigned `remoteId: Int?`. The sync layer must upsert by `id` and backfill `remoteId` from the server's response; any endpoint or query that assumes a single canonical key (e.g. deep links, push notification payloads referencing a record) needs to standardize on `id` until sync completes.
+* **Practice/Template Editing:** Because `Practice`, `Activity`, and `Drill` are now shared templates (rather than data copied into each session), editing a `Practice` after sessions have already been run against it will affect how historical sessions are interpreted (e.g. a renamed or removed `Drill`). This needs a versioning or "snapshot at time of session" decision before templates are editable in production.
