@@ -11,7 +11,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | Milestone | Scope | Status |
 |---|---|---|
 | M1 | Project scaffold, SwiftData models, app shell | ✅ done (v0.1.0) |
-| M2 | Home screen (list / search / create) + player roster | ⏳ next |
+| M2 | Home screen (list / search / create) + player roster | ✅ done (v0.2.0) |
 | M3 | Practice editor (activities → drills, scoring config) | ⬜ planned |
 | M4 | Execute practice (teams, check-offs, scores, session records) | ⬜ planned |
 | M5 | Sync worker + .NET Web API backend | ⬜ planned |
@@ -49,8 +49,9 @@ RunMyPractice/
 ├── RunMyPractice.xcodeproj/               # project + shared scheme
 └── RunMyPractice/
     ├── App/RunMyPracticeApp.swift         # SwiftUI entry point + ModelContainer
-    ├── Models/                            # SwiftData models (tech spec §4.1)
-    ├── Views/                             # RootView + feature screens
+    ├── Models/                            # SwiftData models (tech spec §4.1) + view extensions
+    ├── ViewModels/                        # @Observable form models (MVVM)
+    ├── Views/                             # RootView + feature screens (Practices, Players)
     └── Assets.xcassets/
 ```
 
