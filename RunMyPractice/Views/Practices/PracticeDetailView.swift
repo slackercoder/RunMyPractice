@@ -5,13 +5,14 @@ import SwiftData
 ///
 /// The interactive parts:
 /// - Editing/adding activities and drills: PracticeEditorView (M3)
-/// - Live execution (teams, check-offs, scores): M4
+/// - Live execution (teams, check-offs, scores): ExecutePracticeView (M4)
 struct PracticeDetailView: View {
     var practice: Practice
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingDeleteConfirmation = false
     @State private var isEditing = false
+    @State private var activeSession: PracticeSession?
 
     var body: some View {
         List {
@@ -53,8 +54,8 @@ struct PracticeDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            NavigationLink {
-                ExecutePracticeView(practice: practice)
+            Button {
+                startSession()
             } label: {
                 Label("Execute Practice", systemImage: "play.circle")
                     .frame(maxWidth: .infinity)
@@ -66,6 +67,9 @@ struct PracticeDetailView: View {
         }
         .fullScreenCover(isPresented: $isEditing) {
             PracticeEditorView(practice: practice)
+        }
+        .fullScreenCover(item: $activeSession) { session in
+            ExecutePracticeView(session: session)
         }
         .confirmationDialog(
             "Delete this practice?",
@@ -119,6 +123,20 @@ struct PracticeDetailView: View {
                     .foregroundStyle(.tertiary)
             }
         }
+    }
+
+    /// Resumes the in-progress (unsynced) session for this practice, or starts
+    /// a new one. Leaving the execute screen keeps the session, so an
+    /// interrupted practice resumes where it was left (offline-first, §2).
+    private func startSession() {
+        if let current = practice.currentSession(in: modelContext) {
+            activeSession = current
+            return
+        }
+        let session = PracticeSession(practice: practice)
+        modelContext.insert(session)
+        try? modelContext.save()
+        activeSession = session
     }
 
     private func deletePractice() {
