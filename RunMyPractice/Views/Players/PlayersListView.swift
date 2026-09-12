@@ -12,6 +12,7 @@ struct PlayersListView: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingCreateSheet = false
+    @State private var pendingDelete: Player?
 
     var body: some View {
         NavigationStack {
@@ -31,8 +32,33 @@ struct PlayersListView: View {
                     List {
                         ForEach(players) { player in
                             Text(player.playerName)
+                                .swipeActions {
+                                    Button(role: .destructive) {
+                                        pendingDelete = player
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                         }
-                        .onDelete(perform: delete)
+                        .confirmationDialog(
+                            "Delete this player?",
+                            isPresented: Binding(
+                                get: { pendingDelete != nil },
+                                set: { if !$0 { pendingDelete = nil } }
+                            ),
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete \(pendingDelete?.playerName ?? "")", role: .destructive) {
+                                if let player = pendingDelete {
+                                    player.delete(in: modelContext)
+                                    try? modelContext.save()
+                                }
+                                pendingDelete = nil
+                            }
+                            Button("Cancel", role: .cancel) {
+                                pendingDelete = nil
+                            }
+                        }
                     }
                 }
             }
@@ -52,10 +78,4 @@ struct PlayersListView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(players[index])
-        }
-        try? modelContext.save()
-    }
 }

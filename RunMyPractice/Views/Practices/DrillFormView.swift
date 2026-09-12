@@ -66,7 +66,9 @@ struct DrillFormView: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .frame(maxWidth: 480)
+        .frame(maxWidth: .infinity)
+        .presentationDetents([.large])
     }
 
     private func save() {

@@ -88,6 +88,8 @@ struct PracticeEditorView: View {
                 DrillFormView(viewModel: viewModel)
             }
         }
+        .frame(maxWidth: 700)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Activities

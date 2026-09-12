@@ -22,13 +22,19 @@ final class TeamSetupViewModel {
 
     init(session: PracticeSession, in context: ModelContext) {
         self.session = session
-        // Re-seed the solo-player selections from the session's current
-        // "team of 1" records so the sheet reflects the live setup.
+        refreshSelections()
+    }
+
+    /// Re-read the session's current participants so the sheet reflects state
+    /// changed elsewhere (e.g. a player added in a nested sheet this visit).
+    func refreshSelections() {
+        var ids: Set<UUID> = []
         for sessionTeam in session.sessionTeams {
             if let playerID = Self.soloPlayerID(of: sessionTeam) {
-                selectedPlayerIds.insert(playerID)
+                ids.insert(playerID)
             }
         }
+        selectedPlayerIds = ids
     }
 
     /// Session teams whose team has exactly one player (provisioned "team of 1").
@@ -68,6 +74,33 @@ final class TeamSetupViewModel {
         } else {
             selectedPlayerIds.insert(player.id)
         }
+    }
+
+    /// Creates a new roster player right here (no need to leave the practice
+    /// screen) and enrolls them in this session as a solo participant.
+    @discardableResult
+    func addPlayer(named playerName: String, in context: ModelContext) -> Player? {
+        let name = playerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, name.count <= 30 else { return nil }
+        let all = (try? context.fetch(FetchDescriptor<Player>())) ?? []
+        guard !all.contains(where: { $0.playerName.caseInsensitiveCompare(name) == .orderedSame }) else { return nil }
+        let player = Player(playerName: name)
+        context.insert(player)
+        let team = soloTeam(for: player, in: context)
+        let sessionTeam = PracticeSessionTeam(team: team)
+        context.insert(sessionTeam)
+        session.sessionTeams.append(sessionTeam)
+        selectedPlayerIds.insert(player.id)
+        try? context.save()
+        return player
+    }
+
+    /// Deletes a roster player, its provisioned solo team, and its session
+    /// participant entries (see `Player.delete(in:)`).
+    func deletePlayer(_ player: Player, in context: ModelContext) {
+        player.delete(in: context)
+        selectedPlayerIds.remove(player.id)
+        try? context.save()
     }
 
     /// Unlinks and deletes a named team from the session immediately (the
@@ -122,11 +155,19 @@ final class TeamSetupViewModel {
         try? context.save()
     }
 
-    /// The "Team of 1" for a player: reuse an existing one, otherwise create it.
+    /// The "Team of 1" for a player. Matched by name (a team named after the
+    /// player) so records are reused instead of piling up, and never adds a
+    /// player to a team that already has other members.
     private func soloTeam(for player: Player, in context: ModelContext) -> Team {
         let teams = (try? context.fetch(FetchDescriptor<Team>())) ?? []
-        if let existing = teams.first(where: { $0.players.count == 1 && $0.players.first?.id == player.id }) {
+        if let existing = teams.first(where: {
+            $0.teamName == player.playerName && $0.players.count == 1 && $0.players.first?.id == player.id
+        }) {
             return existing
+        }
+        if let reusable = teams.first(where: { $0.teamName == player.playerName && $0.players.isEmpty }) {
+            reusable.players.append(player)
+            return reusable
         }
         let team = Team(teamName: player.playerName, players: [player])
         context.insert(team)

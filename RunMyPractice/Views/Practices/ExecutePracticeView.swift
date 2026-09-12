@@ -134,6 +134,8 @@ struct ExecutePracticeView: View {
                 Text("This deletes the recorded teams, check-offs, and scores. The practice itself is kept.")
             }
         }
+        .frame(maxWidth: 700)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Drills
@@ -196,27 +198,57 @@ struct ExecutePracticeView: View {
         .padding(.vertical, 2)
     }
 
+    @ViewBuilder
     private func scoreRow(_ drill: Drill, participant: PracticeSessionTeam) -> some View {
         let current = score(for: drill, participant: participant)
-        return Menu {
-            ForEach(drill.scoreOptions, id: \.self) { option in
-                Button {
-                    setScore(option, for: drill, participant: participant)
-                } label: {
-                    Label("\(option) pts", systemImage: current == option ? "checkmark" : "")
+
+        // Small choice sets get a tappable segmented control — one glance,
+        // one tap. Larger sets fall back to the compact menu.
+        if drill.scoreOptions.count <= 8 {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(participant.team?.teamName ?? "—")
+                    Spacer()
+                    Text(current.map { "\($0) pts" } ?? "—")
+                        .font(.subheadline)
+                        .foregroundStyle(current == nil ? .secondary : .primary)
                 }
-            }
-            if current != nil {
-                Button("Clear Score", role: .destructive) {
-                    setScore(nil, for: drill, participant: participant)
+                Picker(
+                    "\(participant.team?.teamName ?? "—") score",
+                    selection: Binding(
+                        get: { ScoreValue(rawValue: current ?? -1) ?? .none },
+                        set: { setScore($0.intValue, for: drill, participant: participant) }
+                    )
+                ) {
+                    Text("—").tag(ScoreValue.none)
+                    ForEach(drill.scoreOptions, id: \.self) { option in
+                        Text("\(option)").tag(ScoreValue(option: option))
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-        } label: {
-            HStack {
-                Text(participant.team?.teamName ?? "—")
-                Spacer()
-                Text(current.map { "\($0) pts" } ?? "—")
-                    .foregroundStyle(current == nil ? .secondary : .primary)
+        } else {
+            Menu {
+                ForEach(drill.scoreOptions, id: \.self) { option in
+                    Button {
+                        setScore(option, for: drill, participant: participant)
+                    } label: {
+                        Label("\(option) pts", systemImage: current == option ? "checkmark" : "")
+                    }
+                }
+                if current != nil {
+                    Button("Clear Score", role: .destructive) {
+                        setScore(nil, for: drill, participant: participant)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(participant.team?.teamName ?? "—")
+                    Spacer()
+                    Text(current.map { "\($0) pts" } ?? "—")
+                        .foregroundStyle(current == nil ? .secondary : .primary)
+                }
             }
         }
     }
@@ -276,6 +308,32 @@ struct ExecutePracticeView: View {
     private func discardSession() {
         modelContext.delete(session)
         try? modelContext.save()
+    }
+}
+
+// MARK: - Score Value
+
+/// Segment identity for the drill scoring control. `none` ("—") clears the
+/// score — the "\(value)" segments map to the drill's choice matrix.
+private enum ScoreValue: Hashable {
+    case none
+    case value(Int)
+
+    init(option: Int) {
+        self = .value(option)
+    }
+
+    init?(rawValue: Int) {
+        switch rawValue {
+        case -1: self = .none
+        case 0...: self = .value(rawValue)
+        default: return nil
+        }
+    }
+
+    var intValue: Int? {
+        if case .value(let value) = self { return value }
+        return nil
     }
 }
 
@@ -410,6 +468,8 @@ private struct FinishSummarySheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+        .frame(maxWidth: 480)
+        .frame(maxWidth: .infinity)
     }
 }

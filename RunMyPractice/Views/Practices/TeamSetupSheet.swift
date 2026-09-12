@@ -3,10 +3,12 @@ import SwiftData
 
 /// Participant setup sheet for the execute screen (M4).
 ///
-/// Pick who runs the practice:
+/// Pick who runs the practice — entirely from here, no need to leave the
+/// practice screen:
 /// - **Teams** — named groups (free-form, e.g. "Team 1"), deletable in place.
 /// - **Players** — solo participants; the app provisions each as a background
-///   "team of 1" on Save (Technical Spec §4).
+///   "team of 1" on Save (Technical Spec §4). Players can be created,
+///   selected, and deleted right from this sheet.
 ///
 /// Cancel rolls back in-place changes (e.g. a team removed this visit) and
 /// discards the draft.
@@ -15,6 +17,8 @@ struct TeamSetupSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State var viewModel: TeamSetupViewModel
+    @State private var showingPlayerForm = false
+    @State private var pendingDeletePlayer: Player?
     @Query(sort: \Player.playerName) private var players: [Player]
 
     var body: some View {
@@ -54,7 +58,7 @@ struct TeamSetupSheet: View {
 
                 Section("Players (run as a team of 1)") {
                     if players.isEmpty {
-                        Text("No players yet — add some from the Players tab, then select who is running today.")
+                        Text("No players yet — create one below, then it shows here for selection.")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(players) { player in
@@ -68,6 +72,19 @@ struct TeamSetupSheet: View {
                                 Spacer()
                             }
                         }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                pendingDeletePlayer = player
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+
+                    Button {
+                        showingPlayerForm = true
+                    } label: {
+                        Label("New Player", systemImage: "person.badge.plus")
                     }
                 }
 
@@ -92,7 +109,43 @@ struct TeamSetupSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .frame(maxWidth: 480)
+        .frame(maxWidth: .infinity)
+        .presentationDetents([.large])
+        .sheet(
+            isPresented: $showingPlayerForm,
+            onDismiss: {
+                // Pick up any player added in the nested sheet.
+                viewModel.refreshSelections()
+            }
+        ) {
+            PlayerFormView(session: viewModel.session)
+        }
+        .confirmationDialog(
+            deleteDialogTitle,
+            isPresented: Binding(
+                get: { pendingDeletePlayer != nil },
+                set: { if !$0 { pendingDeletePlayer = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete Player", role: .destructive) {
+                if let player = pendingDeletePlayer {
+                    viewModel.deletePlayer(player, in: modelContext)
+                }
+            }
+        } message: {
+            if let player = pendingDeletePlayer {
+                Text("This removes \"\(player.playerName)\" from the roster, their team of 1, and any session participant entries.")
+            }
+        }
+    }
+
+    private var deleteDialogTitle: String {
+        if let player = pendingDeletePlayer {
+            return "Delete \"\(player.playerName)\"?"
+        }
+        return "Delete Player?"
     }
 
     private func save() {

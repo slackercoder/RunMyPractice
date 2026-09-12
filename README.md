@@ -14,6 +14,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | M2 | Home screen (list / search / create) + player roster | ✅ done (v0.2.0) |
 | M3 | Practice editor (activities → drills, scoring config) | ✅ done (v0.3.0) |
 | M4 | Execute practice (teams, check-offs, scores, session records) | ✅ done (v0.4.0) |
+| UX polish | Full-height sheets, in-practice player/team setup, player deletion, visual drill scoring | ✅ done (v0.4.1) |
 | M5 | Sync worker + .NET Web API backend | ⬜ planned |
 
 ## Key decisions
@@ -35,6 +36,11 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
    xcodebuild -project RunMyPractice.xcodeproj -scheme RunMyPractice \
      -destination 'platform=macOS,variant=Mac Catalyst' CODE_SIGNING_ALLOWED=NO build
    ```
+
+## Backlog / planned
+
+- **M5 — cloud sync**: background sync worker + .NET Web API backend (location TBD).
+- Roster management screen for teams (teams are currently created only from the execute screen's participant sheet).
 
 ## Documentation
 
