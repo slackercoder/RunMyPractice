@@ -3,6 +3,11 @@ import SwiftData
 
 /// Read-only view of a practice template (the "view" part of Functional Spec §5.4).
 ///
+/// A practice is a reusable, freely editable/shareable plan. Each time it is
+/// executed, a new `PracticeSession` is created that snapshots the plan at
+/// run start (v0.5.0), so editing this template later — or sharing it with
+/// another coach — never rewrites recorded runs.
+///
 /// The interactive parts:
 /// - Editing/adding activities and drills: PracticeEditorView (M3)
 /// - Live execution (teams, check-offs, scores): ExecutePracticeView (M4)
@@ -80,7 +85,7 @@ struct PracticeDetailView: View {
                 deletePractice()
             }
         } message: {
-            Text("This removes the practice and its activities and drills.")
+            Text("This removes the practice template. Recorded runs are kept — each keeps a frozen copy of the plan as it was run.")
         }
     }
 
@@ -128,21 +133,24 @@ struct PracticeDetailView: View {
     /// Resumes the in-progress (unsynced) session for this practice, or starts
     /// a new one. Leaving the execute screen keeps the session, so an
     /// interrupted practice resumes where it was left (offline-first, §2).
+    ///
+    /// New sessions snapshot the plan at run start (`PracticeSession.start`) —
+    /// resume never re-snapshots, so a half-finished run keeps the plan it
+    /// was started with.
     private func startSession() {
         if let current = practice.currentSession(in: modelContext) {
             activeSession = current
             return
         }
-        let session = PracticeSession(practice: practice)
-        modelContext.insert(session)
-        try? modelContext.save()
-        activeSession = session
+        activeSession = PracticeSession.start(for: practice, in: modelContext)
     }
 
     private func deletePractice() {
         // Delete activities explicitly (drills cascade with their activity).
-        // NOTE (M5): sessions reference the practice template (tech spec §7) —
-        // when sync lands, template deletion must be handled explicitly.
+        // Recorded runs are safe (v0.5.0): sessions keep their own frozen plan
+        // snapshot, and their `practice` reference (provenance only) is
+        // nullified by the template deletion. NOTE (M5): when sync lands,
+        // template deletion must be handled explicitly server-side.
         for activity in practice.activities {
             modelContext.delete(activity)
         }

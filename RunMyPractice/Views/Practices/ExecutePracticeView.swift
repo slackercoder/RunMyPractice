@@ -6,7 +6,7 @@ import SwiftData
 ///
 /// The coach can:
 /// - assign participants (TeamSetupSheet: named teams + solo players, the latter
-///   provisioned as background "teams of 1" per Technical Spec §4),
+///   as values-only "teams of 1" per Technical Spec §4),
 /// - run an activity countdown timer,
 /// - check off unscored drills (`DrillAcknowledgement`, session-scoped),
 /// - score scored drills per participant (`TeamScore` from the drill's choice
@@ -16,7 +16,10 @@ import SwiftData
 /// All interactions write to the live `PracticeSession` and save immediately
 /// (the local container is the source of truth — Technical Spec §2), so a
 /// session left mid-practice resumes exactly where it was left. The template
-/// practice is never mutated by session state.
+/// practice is never mutated by session state, and the plan shown here comes
+/// from the session's frozen snapshot (v0.5.0) — editing the template in
+/// another window mid-run never rewrites an in-progress or recorded run.
+/// Participants are displayed by their snapshotted `teamName`.
 struct ExecutePracticeView: View {
     var session: PracticeSession
 
@@ -36,7 +39,7 @@ struct ExecutePracticeView: View {
     }
 
     private var activities: [Activity] {
-        practice?.orderedActivities ?? []
+        session.orderedActivities
     }
 
     private var allDrills: [Drill] {
@@ -81,7 +84,7 @@ struct ExecutePracticeView: View {
                     }
                 }
             }
-            .navigationTitle(practice?.title ?? "Execute")
+            .navigationTitle(session.practiceTitle ?? practice?.title ?? "Execute")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -207,14 +210,14 @@ struct ExecutePracticeView: View {
         if drill.scoreOptions.count <= 8 {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text(participant.team?.teamName ?? "—")
+                    Text(participant.teamName)
                     Spacer()
                     Text(current.map { "\($0) pts" } ?? "—")
                         .font(.subheadline)
                         .foregroundStyle(current == nil ? .secondary : .primary)
                 }
                 Picker(
-                    "\(participant.team?.teamName ?? "—") score",
+                    "\(participant.teamName) score",
                     selection: Binding(
                         get: { ScoreValue(rawValue: current ?? -1) ?? .none },
                         set: { setScore($0.intValue, for: drill, participant: participant) }
@@ -244,7 +247,7 @@ struct ExecutePracticeView: View {
                 }
             } label: {
                 HStack {
-                    Text(participant.team?.teamName ?? "—")
+                    Text(participant.teamName)
                     Spacer()
                     Text(current.map { "\($0) pts" } ?? "—")
                         .foregroundStyle(current == nil ? .secondary : .primary)
@@ -302,9 +305,9 @@ struct ExecutePracticeView: View {
         }
     }
 
-    /// Deletes the session record; scores, acknowledgements, and session teams
-    /// cascade. Team templates (including provisioned "teams of 1") and the
-    /// practice itself are kept for reuse.
+    /// Deletes the session record; scores, acknowledgements, session teams,
+    /// and the frozen plan snapshot all cascade. The practice template and
+    /// roster (teams/players) are kept for reuse.
     private func discardSession() {
         modelContext.delete(session)
         try? modelContext.save()
@@ -419,7 +422,7 @@ private struct FinishSummarySheet: View {
     }
 
     private var allDrills: [Drill] {
-        (session.practice?.orderedActivities ?? []).flatMap { $0.orderedDrills }
+        session.orderedActivities.flatMap { $0.orderedDrills }
     }
 
     private var acknowledgementCount: Int {
@@ -434,7 +437,7 @@ private struct FinishSummarySheet: View {
         NavigationStack {
             List {
                 Section("Session Summary") {
-                    LabeledContent("Practice", value: session.practice?.title ?? "—")
+                    LabeledContent("Practice", value: session.practiceTitle ?? session.practice?.title ?? "—")
                     LabeledContent("Date", value: session.createDate.formatted(date: .abbreviated, time: .shortened))
                     LabeledContent("Participants", value: "\(participants.count)")
                     LabeledContent("Check-offs", value: "\(acknowledgementCount)")

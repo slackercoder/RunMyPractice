@@ -1,17 +1,20 @@
 import SwiftUI
 import SwiftData
 
-/// Participant setup sheet for the execute screen (M4).
+/// Participant setup sheet for the execute screen (M4, v0.5.0).
 ///
 /// Pick who runs the practice — entirely from here, no need to leave the
 /// practice screen:
-/// - **Teams** — named groups (free-form, e.g. "Team 1"), deletable in place.
-/// - **Players** — solo participants; the app provisions each as a background
-///   "team of 1" on Save (Technical Spec §4). Players can be created,
-///   selected, and deleted right from this sheet.
+/// - **Teams** — reusable roster teams, selected with a checkmark; new team
+///   names are added to (or matched against) the roster on Save. Orphaned
+///   session team rows (whose roster team was deleted) are shown with a
+///   remove button.
+/// - **Players** — solo participants, each running as a values-only "team of
+///   1" (Technical Spec §4). Players can be created, selected, and deleted
+///   right from this sheet.
 ///
-/// Cancel rolls back in-place changes (e.g. a team removed this visit) and
-/// discards the draft.
+/// Cancel rolls back in-place changes and discards the draft; Save upserts
+/// the session's participant rows (re-freezing current names/labels).
 struct TeamSetupSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +23,7 @@ struct TeamSetupSheet: View {
     @State private var showingPlayerForm = false
     @State private var pendingDeletePlayer: Player?
     @Query(sort: \Player.playerName) private var players: [Player]
+    @Query(sort: \Team.teamName) private var teams: [Team]
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -27,12 +31,31 @@ struct TeamSetupSheet: View {
         NavigationStack {
             Form {
                 Section("Teams") {
-                    ForEach(viewModel.namedTeams) { sessionTeam in
+                    if teams.isEmpty {
+                        Text("No teams yet — add one below, or select players below.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(teams) { team in
+                        let selected = viewModel.isTeamSelected(team)
+                        Button {
+                            viewModel.toggleTeam(team)
+                        } label: {
+                            HStack {
+                                Label(team.teamName, systemImage: selected ? "checkmark.circle.fill" : "person.2")
+                                    .foregroundStyle(selected ? Color.accentColor : .primary)
+                                Spacer()
+                            }
+                        }
+                    }
+
+                    // In-session team rows whose roster team no longer exists
+                    // (or has no source): shown as-is, removable in place.
+                    ForEach(viewModel.orphanedTeams(teams: teams)) { sessionTeam in
                         HStack {
-                            Label(sessionTeam.team?.teamName ?? "—", systemImage: "person.2")
+                            Label(sessionTeam.teamName, systemImage: "person.2")
                             Spacer()
                             Button {
-                                viewModel.removeNamedTeam(sessionTeam, in: modelContext)
+                                viewModel.removeSessionTeam(sessionTeam, in: modelContext)
                             } label: {
                                 Image(systemName: "trash")
                                     .foregroundStyle(.red)
@@ -50,7 +73,7 @@ struct TeamSetupSheet: View {
                         .disabled(!viewModel.canAddTeam)
                     }
 
-                    if viewModel.namedTeams.isEmpty && viewModel.soloTeams.isEmpty {
+                    if teams.isEmpty && viewModel.namedTeams.isEmpty && viewModel.soloTeams.isEmpty {
                         Text("No participants yet — add a team or select players below.")
                             .foregroundStyle(.secondary)
                     }
@@ -136,7 +159,7 @@ struct TeamSetupSheet: View {
             }
         } message: {
             if let player = pendingDeletePlayer {
-                Text("This removes \"\(player.playerName)\" from the roster, their team of 1, and any session participant entries.")
+                Text("This removes \"\(player.playerName)\" from the roster and from this session. Recorded runs keep their frozen copy of the player.")
             }
         }
     }

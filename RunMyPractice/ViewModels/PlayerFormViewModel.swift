@@ -9,8 +9,9 @@ import Observation
 ///
 /// When created from the execute screen's participant sheet (`session != nil`),
 /// the new player is immediately enrolled in that session as a solo
-/// participant — the "team of 1" is provisioned in the background
-/// (Technical Spec §4), so the coach never has to leave the practice screen.
+/// participant (a values-only "team of 1" row on the session — no roster
+/// Team record is created), so the coach never has to leave the practice
+/// screen.
 @Observable
 final class PlayerFormViewModel: Identifiable {
     let id = UUID()
@@ -51,15 +52,14 @@ final class PlayerFormViewModel: Identifiable {
         context.insert(player)
 
         if let session {
-            let teams = (try? context.fetch(FetchDescriptor<Team>())) ?? []
-            var team = teams.first { $0.teamName == player.playerName && $0.players.isEmpty }
-            if team == nil {
-                let newTeam = Team(teamName: player.playerName)
-                context.insert(newTeam)
-                team = newTeam
-            }
-            team?.players.append(player)
-            let sessionTeam = PracticeSessionTeam(team: team)
+            // Solo participant: a values-only session row. The "team of 1"
+            // exists in the run record (and the sync payload); no roster
+            // Team record is provisioned (Technical Spec §4, v0.5.0).
+            let sessionTeam = PracticeSessionTeam(
+                teamName: player.playerName,
+                playerLabels: [player.playerName],
+                soloPlayerID: player.id
+            )
             context.insert(sessionTeam)
             session.sessionTeams.append(sessionTeam)
         }

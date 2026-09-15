@@ -4,13 +4,14 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.2.0
+* **Version:** 1.3.0
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-10 | Initial Core Architecture Draft | [Name] |
 | 1.1.0 | 2026-09-10 | Refined Activity, Drill, and Scoring Logic | [Name] |
 | 1.2.0 | 2026-09-10 | Replaced backend schema with Practice/PracticeSession model; updated SwiftData models (4.1) and sync payload (6) to match | [Name] |
+| 1.3.0 | 2026-09-14 | v0.5.0: self-contained run records — sessions snapshot the plan + group at run start (4.1, 4.2, 6, 7 updated) | [Name] |
 
 ---
 
@@ -36,7 +37,7 @@ To ensure the application can scale from curling to any other sporting disciplin
 `Sessions ➔ Activities (Segments) ➔ Drills ➔ Teams`.
 
 ### Individual vs. Team Drill Simplification
-To avoid complex relational data configurations or polymorphism when handling individual versus team drills, **all drills are evaluated using a Team context**. For individual drills, the application transparently provisions a "Team of 1" in the background without requiring user input or additional layout overhead.
+To avoid complex relational data configurations or polymorphism when handling individual versus team drills, **all drills are evaluated using a Team context**. For individual drills, the session records a values-only "team of 1" participant row (the player's label, Section 4.1) — no roster `Team` record is provisioned in the app; the one-person team is materialized server-side when the session syncs (Section 6).
 
 ### 4.1 Client-Side SwiftData Models
 Every model carries a client-generated `id: UUID` as its local identity (required for offline-first creation) plus an optional `remoteId: Int?` that is populated once the server assigns its `INT IDENTITY` primary key on first successful sync. Records with `remoteId == nil` are treated as not-yet-created server-side; the sync worker upserts by `id` and stores the returned `remoteId`.
@@ -150,14 +151,21 @@ final class Player {
     }
 }
 
-// An executed instance of a Practice, run against one or more Teams.
+// An executed instance of a Practice (v0.5.0: self-contained run record).
+// It snapshots the plan (activities + drills) and the participating group
+// (values) at run start, so editing/deleting the template or roster later
+// never rewrites or destroys recorded runs. `practice` is provenance-only.
 @Model
 final class PracticeSession {
     @Attribute(.unique) var id: UUID
     var remoteId: Int?
     @Relationship var practice: Practice?
+    /// Frozen practice title (the template may be renamed later).
+    var practiceTitle: String?
     var createdBy: String?
     var createDate: Date
+    /// Frozen copy of the plan at run start (detached Activities/Drills).
+    @Relationship(deleteRule: .cascade) var activities: [Activity] = []
     @Relationship(deleteRule: .cascade) var sessionTeams: [PracticeSessionTeam] = []
     @Relationship(deleteRule: .cascade) var acknowledgements: [DrillAcknowledgement] = []
     var isSynced: Bool = false
@@ -168,19 +176,59 @@ final class PracticeSession {
         self.createdBy = createdBy
         self.createDate = Date()
     }
+
+    /// Single creation choke point: deep-copies the practice's plan (fresh
+    /// IDs, copied fields) and saves. Resume never re-snapshots.
+    static func start(for practice: Practice, in context: ModelContext) -> PracticeSession {
+        let session = PracticeSession(practice: practice)
+        session.practiceTitle = practice.title
+        for activity in practice.orderedActivities {
+            let copy = Activity(
+                title: activity.title,
+                timeAllottedInMinutes: activity.timeAllottedInMinutes,
+                order: activity.order
+            )
+            for drill in activity.orderedDrills {
+                let drillCopy = Drill(
+                    title: drill.title,
+                    isScored: drill.isScored,
+                    maxPoints: drill.maxPoints,
+                    pointStep: drill.pointStep,
+                    order: drill.order
+                )
+                context.insert(drillCopy)
+                copy.drills.append(drillCopy)
+            }
+            context.insert(copy)
+            session.activities.append(copy)
+        }
+        context.insert(session)
+        context.save()
+        return session
+    }
 }
 
-// Join between a PracticeSession and a participating Team; scores hang off this.
+// A participating group in a session, snapshotted as values (v0.5.0).
+// teamName/playerLabels are frozen when the group is enrolled; soloPlayerID
+// and sourceTeamID are plain values for provenance/upsert (NOT relationships),
+// so a deleted roster record never deletes or breaks a recorded run.
+// Team scores hang off this row.
 @Model
 final class PracticeSessionTeam {
     @Attribute(.unique) var id: UUID
     var remoteId: Int?
-    @Relationship var team: Team?
+    var teamName: String
+    var playerLabels: [String] = []
+    var soloPlayerID: UUID?
+    var sourceTeamID: UUID?
     @Relationship(deleteRule: .cascade) var scores: [TeamScore] = []
 
-    init(team: Team?) {
+    init(teamName: String, playerLabels: [String] = [], soloPlayerID: UUID? = nil, sourceTeamID: UUID? = nil) {
         self.id = UUID()
-        self.team = team
+        self.teamName = teamName
+        self.playerLabels = playerLabels
+        self.soloPlayerID = soloPlayerID
+        self.sourceTeamID = sourceTeamID
     }
 }
 
@@ -298,7 +346,10 @@ CREATE TABLE PracticeSession (
 CREATE TABLE PracticeSessionTeam (
     PracticeSessionTeamId INT IDENTITY(1,1) PRIMARY KEY,
     PracticeSessionId INT NOT NULL FOREIGN KEY REFERENCES PracticeSession(PracticeSessionId),
-    TeamId INT NOT NULL FOREIGN KEY REFERENCES Team(TeamId)
+    TeamId INT NULL FOREIGN KEY REFERENCES Team(TeamId),
+    TeamName NVARCHAR(100) NOT NULL,
+    PlayerLabels NVARCHAR(MAX) NULL,
+    SoloPlayerId INT NULL FOREIGN KEY REFERENCES Player(PlayerId)
 );
 
 CREATE TABLE TeamScore (
@@ -322,6 +373,7 @@ CREATE TABLE PracticeSessionAcknowledgement (
 
 > **Note:** Sections 4.1 and 6 have been updated to match this schema. Since the backend uses `INT IDENTITY` keys but the client must be able to create records offline, the client models carry a local `id: UUID` (client identity) plus an optional `remoteId: Int?` (server identity, populated after sync) — see Section 4.1 for details.
 
+> **Note (v0.5.0):** `PracticeSessionTeam` stores the participating group as frozen values: `TeamName` is always present, `PlayerLabels` is a JSON array of coach-assigned labels, and `TeamId` / `SoloPlayerId` are nullable provenance/upsert keys rather than a hard `Team` foreign key — deleting a roster record must never break a recorded run. Solo participants ("teams of 1") materialize as a one-person `Team` row server-side at sync. The session's plan snapshot (Activities/Drills copied at run start) maps to session-scoped mirror rows keyed by `PracticeSessionId`; exact server-side snapshot storage is finalized in M5.
 ---
 
 ## 5. UI Elements & Dynamic Point Range Generation
@@ -342,7 +394,7 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 
 ## 6. API Design & Core Sync Payload
 ### Push Sync Endpoint: POST `/api/v1/sync/sessions`
-Accepts hierarchical payload components to update centralized data indexes. Since `Practice`, `Activity`, and `Drill` are template records (created/edited separately, typically ahead of time by the coach), the session payload references them by `id` rather than re-embedding their definitions — the session sync only needs to carry the *execution* data: which teams participated, what they scored, and which unscored drills were acknowledged. All `id` values are client-generated UUIDs; a `remoteId` is absent until the server has persisted the record and returned its assigned identity (see Section 4.1).
+Accepts hierarchical payload components to persist completed session records. Since v0.5.0 the session payload is **self-contained**: because `Practice` is a freely editable and shareable template, the payload embeds the session's frozen plan snapshot — `activities` with their `drills`, copied at run start under fresh client UUIDs and stored server-side as session-scoped rows — plus the participating group as values (`sessionTeams[].teamName` + `playerLabels`; a solo participant is a values-only "team of 1"). The *execution* data (per-participant scores and acknowledgements) references the snapshot drills by `id`, not the template's. `practiceId` is provenance-only. All `id` values are client-generated UUIDs; a `remoteId` is absent until the server has persisted the record and returned its assigned identity (see Section 4.1).
 
 #### Request Body Example
 ```json
@@ -350,17 +402,69 @@ Accepts hierarchical payload components to update centralized data indexes. Sinc
   {
     "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
     "practiceId": "11111111-2222-3333-4444-555555555555",
+    "practiceTitle": "Curling Fundamentals",
     "createdBy": "coach_jsmith",
     "createDate": "2026-09-10T11:45:00-04:00",
+    "activities": [
+      {
+        "id": "7c8d9e0f-1a2b-3c4d-5e6f-7a8b9c0d1e2f",
+        "title": "Ice Warm-up",
+        "timeAllottedInMinutes": 15,
+        "order": 0,
+        "drills": [
+          {
+            "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+            "title": "Progressive Slides",
+            "isScored": false,
+            "order": 0
+          }
+        ]
+      },
+      {
+        "id": "8d9e0f1a-2b3c-4d5e-6f7a-8b9c0d1e2f3a",
+        "title": "Draw to Button Accuracy",
+        "timeAllottedInMinutes": 20,
+        "order": 1,
+        "drills": [
+          {
+            "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+            "title": "Draw Placement",
+            "isScored": true,
+            "maxPoints": 10,
+            "pointStep": 2,
+            "order": 0
+          }
+        ]
+      }
+    ],
     "sessionTeams": [
       {
         "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
         "teamId": "00000000-1111-2222-3333-444455556666",
+        "teamName": "Team 1",
+        "playerLabels": ["Skip A", "Lead B"],
+        "soloPlayerId": null,
         "scores": [
           {
             "id": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c",
             "drillId": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
             "score": 8,
+            "createdBy": "coach_jsmith",
+            "createDate": "2026-09-10T12:05:00-04:00"
+          }
+        ]
+      },
+      {
+        "id": "9a8b7c6d-5e4f-3a2b-1c0d-0f1e2d3c4b5a",
+        "teamId": null,
+        "teamName": "Skip C",
+        "playerLabels": ["Skip C"],
+        "soloPlayerId": "34343434-4545-5656-6767-787878787878",
+        "scores": [
+          {
+            "id": "0f1e2d3c-4b5a-6c7d-8e9f-0a1b2c3d4e5f",
+            "drillId": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+            "score": 6,
             "createdBy": "coach_jsmith",
             "createDate": "2026-09-10T12:05:00-04:00"
           }
@@ -380,7 +484,7 @@ Accepts hierarchical payload components to update centralized data indexes. Sinc
 ]
 ```
 
-In this example, `practiceId` points at a "Curling Fundamentals" `Practice` whose Activities include an "Ice Warm-up" (containing the unscored "Progressive Slides" drill, referenced in `acknowledgements`) and a "Draw to Button Accuracy" activity (containing the scored "Draw Placement" drill, referenced in `sessionTeams[].scores`).
+In this example, `practiceId` points at the "Curling Fundamentals" `Practice` template; `activities` is the session's **frozen snapshot** of that plan (copied at run start, so later template edits never affect this record), and the `drillId` values in `sessionTeams[].scores` / `acknowledgements` reference the *snapshot* drills (the unscored "Progressive Slides" in "Ice Warm-up"; the scored "Draw Placement" in "Draw to Button Accuracy"). The first `sessionTeams` entry is a named team (`teamId` is its source roster team; `teamName` + `playerLabels` are the frozen values); the second is a solo participant — a values-only "team of 1" (`teamId` null until the server materializes the one-person team, `soloPlayerId` identifying the roster player).
 
 #### Response
 The server responds with the `id` → `remoteId` mapping for every record it persisted (session, session-teams, scores, acknowledgements), so the client can populate `remoteId` locally and mark the session `isSynced = true`.
@@ -389,4 +493,5 @@ The server responds with the `id` → `remoteId` mapping for every record it per
 
 ## 7. Risks, Constraints, and Assumptions
 * **Dual-Key Sync Strategy:** Because the backend uses `INT IDENTITY` primary keys while the offline-first client must create valid local records without network access, every synced entity carries both a client-generated `id: UUID` and a server-assigned `remoteId: Int?`. The sync layer must upsert by `id` and backfill `remoteId` from the server's response; any endpoint or query that assumes a single canonical key (e.g. deep links, push notification payloads referencing a record) needs to standardize on `id` until sync completes.
-* **Practice/Template Editing:** Because `Practice`, `Activity`, and `Drill` are now shared templates (rather than data copied into each session), editing a `Practice` after sessions have already been run against it will affect how historical sessions are interpreted (e.g. a renamed or removed `Drill`). This needs a versioning or "snapshot at time of session" decision before templates are editable in production.
+* **Practice/Template Editing — resolved (v0.5.0):** Sessions snapshot the plan (activities + drills) and the participating group (as values) at run start, so editing or deleting a `Practice` template, or a roster team/player, after sessions have run never rewrites or destroys recorded runs. The session's `practice` reference and `PracticeSessionTeam.sourceTeamID`/`soloPlayerID` are provenance-only plain values. Remaining work: server-side storage of the plan snapshot (Section 6), finalized in M5.
+* **Ownership and sharing:** Roster records (players, teams) are private to the coach who created them (`createdBy` is the local ownership anchor; they become scoped to the signed-in user once auth lands). Practices are shareable templates — another coach can import a practice and run it with their own groups. Sessions are private run records; the payload carries group *labels* (not just IDs), so a cross-user run needs no roster ID resolution.

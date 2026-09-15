@@ -34,22 +34,15 @@ extension Activity {
 }
 
 extension Player {
-    /// Deletes the player, plus any provisioned solo "team of 1" records it
-    /// owns (otherwise empty team records would linger), and unlinks the
-    /// player's session participant entries from any sessions (so the roster
-    /// never shows a ghost "—" participant). Deleting the session team rows
-    /// cascades their recorded scores.
+    /// Deletes the roster player plus any solo "team of 1" records it owns
+    /// (otherwise empty team records would linger). Membership in named
+    /// teams nullifies automatically. Recorded runs are untouched (v0.5.0):
+    /// sessions snapshot their groups as values, so a player deleted from the
+    /// roster still exists as a frozen label in every run that recorded them.
     func delete(in context: ModelContext) {
         let teams = (try? context.fetch(FetchDescriptor<Team>())) ?? []
         let soloTeams = teams.filter { $0.players.count == 1 && $0.players.first?.id == id }
         for team in soloTeams {
-            let sessions = (try? context.fetch(FetchDescriptor<PracticeSession>())) ?? []
-            for session in sessions {
-                for sessionTeam in session.sessionTeams where sessionTeam.team?.id == team.id {
-                    context.delete(sessionTeam)
-                    session.sessionTeams.removeAll { $0.id == sessionTeam.id }
-                }
-            }
             context.delete(team)
         }
         context.delete(self)
