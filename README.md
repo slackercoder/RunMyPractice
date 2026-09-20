@@ -19,6 +19,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | Data safety | Startup store validation + recovery screen; loud (alert) save/start failures | ✅ done (v0.5.1) |
 | M5 | Run history & review — browse recorded runs, read-only run review, per-practice past runs; coach notes on drills | ✅ done (v0.6.0) |
 | Navigation fix | Tapping a practice or a run no longer pops straight back (nested stack removed, destinations hoisted above conditional branches) | ✅ done (v0.6.1) |
+| Player standings | Per-player points total (team + solo scores) with one-tap reset for monthly leagues | ✅ done (v0.7.0) |
 | M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions

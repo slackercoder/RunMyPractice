@@ -37,6 +37,7 @@
 		1B000000000000000000001F /* PlayerFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000023 /* PlayerFormView.swift */; };
 		1B0000000000000000000020 /* RunsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000024 /* RunsListView.swift */; };
 		1B0000000000000000000021 /* RunReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000025 /* RunReviewView.swift */; };
+		1B0000000000000000000022 /* StandingsReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000026 /* StandingsReset.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 		1A0000000000000000000023 /* PlayerFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerFormView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000024 /* RunsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsListView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000025 /* RunReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunReviewView.swift; sourceTree = "<group>"; };
+		1A0000000000000000000026 /* StandingsReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsReset.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +139,7 @@
 				1A000000000000000000000A /* DrillAcknowledgement.swift */,
 				1A0000000000000000000013 /* ModelExtensions.swift */,
 				1A000000000000000000001A /* Scoring.swift */,
+				1A0000000000000000000026 /* StandingsReset.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -295,6 +298,7 @@
 				1B000000000000000000001F /* PlayerFormView.swift in Sources */,
 				1B0000000000000000000020 /* RunsListView.swift in Sources */,
 				1B0000000000000000000021 /* RunReviewView.swift in Sources */,
+				1B0000000000000000000022 /* StandingsReset.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -437,7 +441,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mariofolino.practice;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -469,7 +473,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.1;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mariofolino.practice;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

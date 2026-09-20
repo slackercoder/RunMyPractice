@@ -57,6 +57,7 @@ struct RunMyPracticeApp: App {
                      Team.self, Player.self,
                      PracticeSession.self, PracticeSessionTeam.self,
                      TeamScore.self, DrillAcknowledgement.self,
+                     StandingsReset.self,
                 configurations: ModelConfiguration()
             )
             container.mainContext.autosaveEnabled = true
@@ -82,6 +83,7 @@ struct RunMyPracticeApp: App {
                      Team.self, Player.self,
                      PracticeSession.self, PracticeSessionTeam.self,
                      TeamScore.self, DrillAcknowledgement.self,
+                     StandingsReset.self,
                 configurations: ModelConfiguration()
             )
             newContainer.mainContext.autosaveEnabled = true

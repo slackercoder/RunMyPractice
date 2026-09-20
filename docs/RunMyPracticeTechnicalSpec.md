@@ -4,7 +4,7 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.4.0
+* **Version:** 1.5.0
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
@@ -14,6 +14,7 @@
 | 1.3.0 | 2026-09-14 | v0.5.0: self-contained run records — sessions snapshot the plan + group at run start (4.1, 4.2, 6, 7 updated) | [Name] |
 
 | 1.4.0 | 2026-09-20 | v0.6.0: drill `notes` field, session `completedDate` (resume matches only incomplete runs), run history & review UI — Runs tab, read-only run review, per-practice past runs (4.1, 4.2, 5 updated) | [Name] |
+| 1.5.0 | 2026-09-20 | v0.7.0: player standings — per-player point totals computed from recorded runs (team + solo scores), one-way StandingsReset marker for resets; v0.6.1 navigation fixes (nested stack removed, destinations hoisted) | [Name] |
 
 ---
 
@@ -276,6 +277,25 @@ final class DrillAcknowledgement {
         self.createDate = Date()
     }
 }
+
+// One-way marker: the standings tally restarts from this point (v0.7.0).
+// Player point totals are computed from recorded runs (their label on the
+// scoring team), never stored — so a reset never deletes a run; it only
+// stops runs from the latest reset onward from counting.
+@Model
+final class StandingsReset {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var date: Date
+    var note: String? // e.g. "June league — prizes awarded"
+
+    init(date: Date = Date(), note: String? = nil) {
+        self.id = UUID()
+        self.remoteId = nil
+        self.date = date
+        self.note = note
+    }
+}
 ```
 
 ### 4.2 Backend SQL Schema (.NET Target)
@@ -400,6 +420,7 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 * **Ungraded Drill (`isScored == false`):** Renders a high-level list entry with an interactive toggle switch or checkbox. Toggling it creates (or updates) a `DrillAcknowledgement` record scoped to the current `PracticeSession` and this `Drill`, rather than mutating a flag on the drill itself.
 * **Graded Drill (`isScored == true`):** Loops through the `PracticeSessionTeam` entries for the current session. Renders an adaptive grid item or selector containing the generated integer increments from the step calculations; a selection creates/updates a `TeamScore` record linking that team, the drill, and the chosen score.
 * **Coach Notes (v0.6.0):** Each drill card renders the drill's `notes` (coach setup/cue text) under the description in the practice detail view and the live execute screen; a finished run's read-only review shows the notes as snapshotted at run time.
+* **Player Standings (v0.7.0):** The Players tab renders each player's current points total — every point a team they were on scored, plus solo scores, from runs after the latest `StandingsReset` marker — with sort by label or by points (leaderboard) and a one-tap reset (optional note).
 
 ---
 
