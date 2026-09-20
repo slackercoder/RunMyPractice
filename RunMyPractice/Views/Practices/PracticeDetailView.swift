@@ -18,6 +18,7 @@ struct PracticeDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var isEditing = false
     @State private var activeSession: PracticeSession?
+    @State private var sessionStartProblem: String?
 
     var body: some View {
         List {
@@ -75,6 +76,14 @@ struct PracticeDetailView: View {
         }
         .fullScreenCover(item: $activeSession) { session in
             ExecutePracticeView(session: session)
+        }
+        .alert("Couldn't Start Practice", isPresented: Binding(
+            get: { sessionStartProblem != nil },
+            set: { if !$0 { sessionStartProblem = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(sessionStartProblem ?? "The session could not be saved.")
         }
         .confirmationDialog(
             "Delete this practice?",
@@ -142,7 +151,13 @@ struct PracticeDetailView: View {
             activeSession = current
             return
         }
-        activeSession = PracticeSession.start(for: practice, in: modelContext)
+        do {
+            activeSession = try PracticeSession.start(for: practice, in: modelContext)
+        } catch {
+            // Don't open the execute screen for a session that couldn't be
+            // persisted — surface the failure instead.
+            sessionStartProblem = error.localizedDescription
+        }
     }
 
     private func deletePractice() {

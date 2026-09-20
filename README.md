@@ -16,6 +16,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | M4 | Execute practice (teams, check-offs, scores, session records) | ✅ done (v0.4.0) |
 | UX polish | Full-height sheets, in-practice player/team setup, player deletion, visual drill scoring | ✅ done (v0.4.1) |
 | Run records | Self-contained runs — each session snapshots the plan + group, so templates and rosters can be edited freely after runs | ✅ done (v0.5.0) |
+| Data safety | Startup store validation + recovery screen; loud (alert) save/start failures | ✅ done (v0.5.1) |
 | M5 | Sync worker + .NET Web API backend | ⬜ planned |
 
 ## Key decisions
@@ -24,6 +25,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 - **Offline-first** (Technical Spec §2): the SwiftData container is the single source of truth for the UI; a background worker pushes to the .NET API when the network is available (M5).
 - **Zero PII**: players are coach-assigned labels (nicknames, position codes).
 - **Self-contained run records** (v0.5.0): a practice is a freely editable/shareable *template*; each run is an independent `PracticeSession` that snapshots the plan (activities + drills) and the participating group (team name + player labels, as values) at run start. Renaming or deleting a template or roster entry never rewrites or destroys recorded runs.
+- **Loud data failures** (v0.5.1): the app opens the SwiftData store through an explicit container with auto-migration, so a store written by an older app version (incompatible schema) or a corrupted store fails at launch and shows a recovery screen — *start with fresh data* (the old store file is first backed up inside the app's storage) or *try again*. The editor's Done and the execute screen's start no longer swallow save errors: they alert and keep the user where they are. Without this, a schema-mismatched store opened silently and every save failed invisibly (the v0.5.0 "practice not saving" bug).
 - **Privacy of synced data** (when identity lands, M5+): rosters (teams + players) sync as per-user private data — anchored to the signed-in user via `createdBy`. Practices are the shareable unit; session records stay private. See Technical Spec §7.
 - **iOS 17+** (SwiftData floor), iPhone + iPad.
 
@@ -39,6 +41,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
    xcodebuild -project RunMyPractice.xcodeproj -scheme RunMyPractice \
      -destination 'platform=macOS,variant=Mac Catalyst' CODE_SIGNING_ALLOWED=NO build
    ```
+4. If the app shows a **"Can't Open Saved Data"** screen on launch, the data on the device was written by an older app version and the schema no longer matches. **Start With Fresh Data** clears it (a copy is kept in the app's `backups` folder) and the app continues with an empty store; **Try Again** re-attempts opening the existing store.
 
 ## Backlog / planned
 

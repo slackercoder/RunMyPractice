@@ -57,7 +57,11 @@ final class PracticeSession {
     ///
     /// Resume never calls this — it returns the existing session, so a plan
     /// edited mid-break is never re-snapshotted into a half-finished run.
-    static func start(for practice: Practice, in context: ModelContext) -> PracticeSession {
+    ///
+    /// Throws if the session could not be persisted: the caller must surface
+    /// the error instead of presenting a session that exists only in memory
+    /// (and would be lost if the app is force-quit mid-run).
+    static func start(for practice: Practice, in context: ModelContext) throws -> PracticeSession {
         let session = PracticeSession(practice: practice)
         session.practiceTitle = practice.title
 
@@ -89,7 +93,7 @@ final class PracticeSession {
         }
 
         context.insert(session)
-        try? context.save()
+        try context.save()
         return session
     }
 }

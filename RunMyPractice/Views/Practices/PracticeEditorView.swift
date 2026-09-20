@@ -19,6 +19,7 @@ struct PracticeEditorView: View {
     @State private var activityForm: ActivityFormViewModel?
     @State private var drillForm: DrillFormViewModel?
     @State private var expandedActivities: Set<UUID> = []
+    @State private var saveProblem: String?
 
     private var orderedActivities: [Activity] {
         practice.orderedActivities
@@ -90,6 +91,14 @@ struct PracticeEditorView: View {
         }
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity)
+        .alert("Couldn't Save", isPresented: Binding(
+            get: { saveProblem != nil },
+            set: { if !$0 { saveProblem = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveProblem ?? "Your changes were not saved.")
+        }
     }
 
     // MARK: - Activities
@@ -224,8 +233,14 @@ struct PracticeEditorView: View {
     private func done() {
         guard !titleIsInvalid else { return }
         practice.title = trimmedTitle
-        try? modelContext.save()
-        dismiss()
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            // Stay in the editor: the changes are still in the model context,
+            // so the user can retry or Cancel rather than losing them silently.
+            saveProblem = error.localizedDescription
+        }
     }
 
     private func cancel() {
