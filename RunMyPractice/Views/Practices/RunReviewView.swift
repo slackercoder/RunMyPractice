@@ -7,6 +7,11 @@ import SwiftData
 /// the frozen plan, the frozen participant snapshots, the check-offs, and the
 /// scores — plus the coach notes captured on each drill. Nothing here writes:
 /// a review is a review, and the run it describes is history.
+///
+/// Presented as a pushed destination (Runs tab, or a practice's Past Runs).
+/// Deliberately has NO NavigationStack of its own: a nested stack inside a
+/// pushed view can clobber the outer stack's state and pop the screen back
+/// instantly (v0.6.1).
 struct RunReviewView: View {
     var session: PracticeSession
 
@@ -15,49 +20,47 @@ struct RunReviewView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    LabeledContent("Date", value: session.createDate.formatted(date: .abbreviated, time: .shortened))
-                    LabeledContent(
-                        "Completed",
-                        value: session.completedDate?.formatted(date: .abbreviated, time: .shortened) ?? "In progress"
-                    )
-                    LabeledContent("Participants", value: "\(participants.count)")
-                }
+        List {
+            Section {
+                LabeledContent("Date", value: session.createDate.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent(
+                    "Completed",
+                    value: session.completedDate?.formatted(date: .abbreviated, time: .shortened) ?? "In progress"
+                )
+                LabeledContent("Participants", value: "\(participants.count)")
+            }
 
-                if participants.isEmpty {
-                    Section("Participants") {
-                        Text("No participants were recorded for this run.")
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Section("Participants") {
-                        ForEach(participants) { participant in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(participant.teamName)
-                                    .font(.headline)
-                                if !participant.playerLabels.isEmpty {
-                                    Text(participant.playerLabels.joined(separator: ", "))
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
+            if participants.isEmpty {
+                Section("Participants") {
+                    Text("No participants were recorded for this run.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section("Participants") {
+                    ForEach(participants) { participant in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(participant.teamName)
+                                .font(.headline)
+                            if !participant.playerLabels.isEmpty {
+                                Text(participant.playerLabels.joined(separator: ", "))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
                 }
+            }
 
-                ForEach(session.orderedActivities) { activity in
-                    Section("\(activity.title) · \(activity.timeAllottedInMinutes) min") {
-                        ForEach(activity.orderedDrills) { drill in
-                            drillRow(drill)
-                        }
+            ForEach(session.orderedActivities) { activity in
+                Section("\(activity.title) · \(activity.timeAllottedInMinutes) min") {
+                    ForEach(activity.orderedDrills) { drill in
+                        drillRow(drill)
                     }
                 }
             }
-            .navigationTitle(session.practiceTitle ?? session.practice?.title ?? "Run Review")
-            .navigationBarTitleDisplayMode(.inline)
         }
+        .navigationTitle(session.practiceTitle ?? session.practice?.title ?? "Run Review")
+        .navigationBarTitleDisplayMode(.inline)
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity)
     }

@@ -39,6 +39,13 @@ struct PracticesHomeView: View {
                 }
             }
             .navigationTitle("Practices")
+            // Registered on the Group, not the List: the List only exists when
+            // the query is non-empty, so a refetch that flips the branch would
+            // unregister the destination and silently pop any pushed practice
+            // (v0.6.1).
+            .navigationDestination(for: Practice.self) { practice in
+                PracticeDetailView(practice: practice)
+            }
             .searchable(text: $searchText, prompt: "Search practices")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -66,9 +73,6 @@ struct PracticesHomeView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-        }
-        .navigationDestination(for: Practice.self) { practice in
-            PracticeDetailView(practice: practice)
         }
     }
 
