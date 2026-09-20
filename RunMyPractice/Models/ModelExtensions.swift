@@ -15,13 +15,17 @@ extension Practice {
     }
 
     /// The in-progress execution of this practice, if one exists: the most
-    /// recent session that has not been synced yet (synced sessions are
-    /// finished runs). Session counts are small on-device, so fetch and filter
-    /// rather than predicate on the optional practice relationship.
+    /// recent session that is neither completed (v0.6.0: `completedDate` set
+    /// on Finish) nor synced yet. Finished runs never resurface on resume —
+    /// they live in the Runs list for review, and the next "Execute Practice"
+    /// starts a fresh run of the (possibly edited) template.
+    ///
+    /// Session counts are small on-device, so fetch and filter rather than
+    /// predicate on the optional practice relationship.
     func currentSession(in context: ModelContext) -> PracticeSession? {
         let sessions = (try? context.fetch(FetchDescriptor<PracticeSession>())) ?? []
         return sessions
-            .filter { !$0.isSynced && $0.practice?.id == id }
+            .filter { !$0.isSynced && $0.completedDate == nil && $0.practice?.id == id }
             .max { $0.createDate < $1.createDate }
     }
 }

@@ -29,6 +29,7 @@ struct ExecutePracticeView: View {
     @State private var teamSetup: TeamSetupViewModel?
     @State private var showingFinishSummary = false
     @State private var showingDiscardConfirmation = false
+    @State private var saveProblem: String?
 
     private var practice: Practice? {
         session.practice
@@ -115,14 +116,27 @@ struct ExecutePracticeView: View {
                 FinishSummarySheet(
                     session: session,
                     onKeep: {
-                        try? modelContext.save()
-                        dismiss()
+                        session.completedDate = Date()
+                        do {
+                            try modelContext.save()
+                            dismiss()
+                        } catch {
+                            saveProblem = error.localizedDescription
+                        }
                     },
                     onDiscard: {
                         discardSession()
                         dismiss()
                     }
                 )
+            }
+            .alert("Couldn't Finish", isPresented: Binding(
+                get: { saveProblem != nil },
+                set: { if !$0 { saveProblem = nil } }
+            )) {
+                Button("OK") { }
+            } message: {
+                Text(saveProblem ?? "The run summary was not saved.")
             }
             .confirmationDialog(
                 "Discard this session?",
@@ -166,6 +180,12 @@ struct ExecutePracticeView: View {
 
             if let description = drill.drillDescription, !description.isEmpty {
                 Text(description)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let notes = drill.notes, !notes.isEmpty {
+                Text(notes)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -445,7 +465,7 @@ private struct FinishSummarySheet: View {
                 }
 
                 Section {
-                    Text("The session is saved on this device. Cloud sync arrives in milestone M5.")
+                    Text("The session is saved on this device. Cloud sync arrives in milestone M6.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

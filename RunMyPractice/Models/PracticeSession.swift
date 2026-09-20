@@ -39,6 +39,13 @@ final class PracticeSession {
     /// confirmed the records (and backfilled the `remoteId`s).
     var isSynced: Bool = false
 
+    /// Set when the coach finishes the run (Finish → Save & Exit, v0.6.0).
+    /// Nil = in progress. Resume (`Practice.currentSession`) only matches
+    /// incomplete, unsynced sessions, so a finished run never resurfaces on
+    /// the next "Execute Practice" — the same template can be run over and
+    /// over, with each run reviewable separately.
+    var completedDate: Date?
+
     init(practice: Practice?, createdBy: String? = nil) {
         self.id = UUID()
         self.practice = practice
@@ -77,6 +84,7 @@ final class PracticeSession {
                 let drillCopy = Drill(
                     title: drill.title,
                     drillDescription: drill.drillDescription,
+                    notes: drill.notes,
                     isScored: drill.isScored,
                     maxPoints: drill.maxPoints,
                     pointStep: drill.pointStep,

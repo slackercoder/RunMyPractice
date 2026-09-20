@@ -12,6 +12,9 @@ final class Drill {
     var remoteId: Int?
     var title: String // E.g., "Progressive Slides", "Draw to the Button"
     var drillDescription: String?
+    /// Coach notes on the drill (v0.6.0): setup, cues, what to watch for.
+    /// Free text, shown in the drill form, during execution, and in run reviews.
+    var notes: String?
 
     // Scoring configuration engine.
     var isScored: Bool // false = acknowledgement check-box only
@@ -26,6 +29,7 @@ final class Drill {
     init(
         title: String,
         drillDescription: String? = nil,
+        notes: String? = nil,
         isScored: Bool,
         maxPoints: Int? = nil,
         pointStep: Int? = nil,
@@ -36,6 +40,7 @@ final class Drill {
         self.id = UUID()
         self.title = title
         self.drillDescription = drillDescription
+        self.notes = notes
         self.isScored = isScored
         self.isAcknowledged = false
         self.maxPoints = maxPoints

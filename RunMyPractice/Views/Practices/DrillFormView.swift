@@ -19,6 +19,8 @@ struct DrillFormView: View {
                     TextField("Title (e.g. \"Draw to the Button\")", text: $viewModel.title)
                         .onSubmit(save)
                     TextField("Description (optional)", text: $viewModel.description, axis: .vertical)
+                    TextField("Notes (optional — e.g. setup, cues, what to watch for)", text: $viewModel.notes, axis: .vertical)
+                        .lineLimit(3...6)
                 }
 
                 Section("Scoring") {

@@ -17,17 +17,17 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | UX polish | Full-height sheets, in-practice player/team setup, player deletion, visual drill scoring | ✅ done (v0.4.1) |
 | Run records | Self-contained runs — each session snapshots the plan + group, so templates and rosters can be edited freely after runs | ✅ done (v0.5.0) |
 | Data safety | Startup store validation + recovery screen; loud (alert) save/start failures | ✅ done (v0.5.1) |
-| M5 | Run history & review — browse recorded runs, read-only run review, per-practice past runs; coach notes on drills | ⬜ next (v0.6.0) |
+| M5 | Run history & review — browse recorded runs, read-only run review, per-practice past runs; coach notes on drills | ✅ done (v0.6.0) |
 | M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions
 
 - **No auth in the MVP** (decided 2026-09-10). The app runs entirely locally on the device; email/identity (RunMy identity server) arrives in a later phase.
-- **Offline-first** (Technical Spec §2): the SwiftData container is the single source of truth for the UI; a background worker pushes to the .NET API when the network is available (M5).
+- **Offline-first** (Technical Spec §2): the SwiftData container is the single source of truth for the UI; a background worker pushes to the .NET API when the network is available (M6).
 - **Zero PII**: players are coach-assigned labels (nicknames, position codes).
 - **Self-contained run records** (v0.5.0): a practice is a freely editable/shareable *template*; each run is an independent `PracticeSession` that snapshots the plan (activities + drills) and the participating group (team name + player labels, as values) at run start. Renaming or deleting a template or roster entry never rewrites or destroys recorded runs.
 - **Loud data failures** (v0.5.1): the app opens the SwiftData store through an explicit container with auto-migration, so a store written by an older app version (incompatible schema) or a corrupted store fails at launch and shows a recovery screen — *start with fresh data* (the old store file is first backed up inside the app's storage) or *try again*. The editor's Done and the execute screen's start no longer swallow save errors: they alert and keep the user where they are. Without this, a schema-mismatched store opened silently and every save failed invisibly (the v0.5.0 "practice not saving" bug).
-- **Privacy of synced data** (when identity lands, M5+): rosters (teams + players) sync as per-user private data — anchored to the signed-in user via `createdBy`. Practices are the shareable unit; session records stay private. See Technical Spec §7.
+- **Privacy of synced data** (when identity lands, M6+): rosters (teams + players) sync as per-user private data — anchored to the signed-in user via `createdBy`. Practices are the shareable unit; session records stay private. See Technical Spec §7.
 - **iOS 17+** (SwiftData floor), iPhone + iPad.
 
 ## Getting started
@@ -46,8 +46,6 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 
 ## Backlog / planned
 
-- **M5 — run history & review** (coach priority, requested 2026-09-20): the app records every run (v0.5.0) but has no way to look at past ones. Add: a **Runs** tab listing all recorded sessions (practice title as run, date, participants, score/check-off summary); a **read-only review screen** per run (plan as executed, per-participant scores and check-offs); a "past runs" section on each practice's detail screen; and deletion of old runs.
-- **Coach notes on drills** (lands with M5): a `notes` text field on every `Drill` — editable in the drill form, saved with the practice, and snapshotted into each run's frozen copy so a review shows the notes as they were at run time.
 - **M6 — cloud sync** (was M5; parked): background sync worker + .NET Web API backend (location TBD — in-repo vs separate repo, decision still open).
 - Roster management screen for teams (teams are currently created only from the execute screen's participant sheet).
 

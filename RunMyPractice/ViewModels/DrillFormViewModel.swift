@@ -18,6 +18,7 @@ final class DrillFormViewModel {
 
     var title: String
     var description: String
+    var notes: String
     var isScored: Bool
     var maxPointsText: String
     var pointStepText: String
@@ -29,6 +30,7 @@ final class DrillFormViewModel {
         self.isCreating = isCreating
         self.title = drill.title
         self.description = drill.drillDescription ?? ""
+        self.notes = drill.notes ?? ""
         self.isScored = drill.isScored
         self.maxPointsText = drill.maxPoints.map(String.init) ?? ""
         self.pointStepText = drill.pointStep.map(String.init) ?? ""
@@ -58,9 +60,14 @@ final class DrillFormViewModel {
         return scoreOptions.map(String.init).joined(separator: ", ")
     }
 
+    var trimmedNotes: String {
+        notes.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var isValid: Bool {
         let titleValid = !trimmedTitle.isEmpty && trimmedTitle.count <= 150
         guard titleValid else { return false }
+        guard trimmedNotes.count <= 2000 else { return false }
         guard isScored, let max = parsedMaxPoints, let step = parsedPointStep else { return true }
         return (1...100).contains(max) && (1...max).contains(step)
     }
@@ -68,6 +75,7 @@ final class DrillFormViewModel {
     var validationMessage: String? {
         if trimmedTitle.isEmpty { return "Enter a title." }
         if trimmedTitle.count > 150 { return "Title must be 150 characters or fewer." }
+        if trimmedNotes.count > 2000 { return "Notes must be 2000 characters or fewer." }
         guard isScored else { return nil }
         guard let max = parsedMaxPoints else { return "Enter max points (1–100)." }
         guard (1...100).contains(max) else { return "Max points must be 1–100." }
@@ -81,6 +89,7 @@ final class DrillFormViewModel {
         drill.title = trimmedTitle
         let description = self.description.trimmingCharacters(in: .whitespacesAndNewlines)
         drill.drillDescription = description.isEmpty ? nil : description
+        drill.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
         drill.isScored = isScored
         if isScored, let max = parsedMaxPoints, let step = parsedPointStep {
             drill.maxPoints = max

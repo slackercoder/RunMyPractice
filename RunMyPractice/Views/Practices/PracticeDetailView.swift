@@ -11,8 +11,24 @@ import SwiftData
 /// The interactive parts:
 /// - Editing/adding activities and drills: PracticeEditorView (M3)
 /// - Live execution (teams, check-offs, scores): ExecutePracticeView (M4)
+/// - Past runs (v0.6.0): every recorded run for this template, newest first;
+///   tap to review it read-only (RunReviewView).
 struct PracticeDetailView: View {
     var practice: Practice
+
+    /// Every run recorded for this template (v0.6.0), newest first.
+    @Query private var pastRuns: [PracticeSession]
+
+    init(practice: Practice) {
+        self.practice = practice
+        // Capture the UUID in a local: predicates can't type-check a keypath
+        // into the captured model across an optional relationship.
+        let practiceID = practice.id
+        _pastRuns = Query(
+            filter: #Predicate<PracticeSession> { $0.practice?.id == practiceID },
+            sort: \PracticeSession.createDate, order: .reverse
+        )
+    }
 
     @Environment(\.modelContext) private var modelContext
     @State private var showingDeleteConfirmation = false
@@ -28,6 +44,16 @@ struct PracticeDetailView: View {
                 LabeledContent("Planned time", value: "\(practice.totalTimeInMinutes) min")
             }
 
+            if !pastRuns.isEmpty {
+                Section("Past Runs") {
+                    ForEach(pastRuns) { session in
+                        NavigationLink(value: session) {
+                            pastRunRow(session)
+                        }
+                    }
+                }
+            }
+
             if practice.orderedActivities.isEmpty {
                 Section {
                     Text("No activities yet — edit this practice to add some.")
@@ -40,6 +66,9 @@ struct PracticeDetailView: View {
                     }
                 }
             }
+        }
+        .navigationDestination(for: PracticeSession.self) { session in
+            RunReviewView(session: session)
         }
         .navigationTitle(practice.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -95,6 +124,30 @@ struct PracticeDetailView: View {
             }
         } message: {
             Text("This removes the practice template. Recorded runs are kept — each keeps a frozen copy of the plan as it was run.")
+        }
+    }
+
+    private func pastRunRow(_ session: PracticeSession) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("Run of \(session.practiceTitle ?? practice.title)")
+                    .font(.subheadline)
+                    .lineLimit(1)
+                if session.completedDate == nil {
+                    Text("in progress")
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.orange.opacity(0.25), in: Capsule())
+                        .foregroundStyle(.orange)
+                }
+            }
+            Text(
+                "\(session.createDate.formatted(date: .abbreviated, time: .shortened)) · "
+                + "\(session.sessionTeams.count) participants"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
         }
     }
 
@@ -164,7 +217,7 @@ struct PracticeDetailView: View {
         // Delete activities explicitly (drills cascade with their activity).
         // Recorded runs are safe (v0.5.0): sessions keep their own frozen plan
         // snapshot, and their `practice` reference (provenance only) is
-        // nullified by the template deletion. NOTE (M5): when sync lands,
+        // nullified by the template deletion. NOTE (M6): when sync lands,
         // template deletion must be handled explicitly server-side.
         for activity in practice.activities {
             modelContext.delete(activity)
