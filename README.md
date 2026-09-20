@@ -17,7 +17,8 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | UX polish | Full-height sheets, in-practice player/team setup, player deletion, visual drill scoring | ✅ done (v0.4.1) |
 | Run records | Self-contained runs — each session snapshots the plan + group, so templates and rosters can be edited freely after runs | ✅ done (v0.5.0) |
 | Data safety | Startup store validation + recovery screen; loud (alert) save/start failures | ✅ done (v0.5.1) |
-| M5 | Sync worker + .NET Web API backend | ⬜ planned |
+| M5 | Run history & review — browse recorded runs, read-only run review, per-practice past runs; coach notes on drills | ⬜ next (v0.6.0) |
+| M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions
 
@@ -45,7 +46,9 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 
 ## Backlog / planned
 
-- **M5 — cloud sync**: background sync worker + .NET Web API backend (location TBD).
+- **M5 — run history & review** (coach priority, requested 2026-09-20): the app records every run (v0.5.0) but has no way to look at past ones. Add: a **Runs** tab listing all recorded sessions (practice title as run, date, participants, score/check-off summary); a **read-only review screen** per run (plan as executed, per-participant scores and check-offs); a "past runs" section on each practice's detail screen; and deletion of old runs.
+- **Coach notes on drills** (lands with M5): a `notes` text field on every `Drill` — editable in the drill form, saved with the practice, and snapshotted into each run's frozen copy so a review shows the notes as they were at run time.
+- **M6 — cloud sync** (was M5; parked): background sync worker + .NET Web API backend (location TBD — in-repo vs separate repo, decision still open).
 - Roster management screen for teams (teams are currently created only from the execute screen's participant sheet).
 
 ## Documentation
