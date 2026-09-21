@@ -21,6 +21,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | Navigation fix | Tapping a practice or a run no longer pops straight back (nested stack removed, destinations hoisted above conditional branches) | ✅ done (v0.6.1) |
 | Player standings | Per-player points total (team + solo scores) with one-tap reset for monthly leagues | ✅ done (v0.7.0) |
 | Sheet & Ice theme | Curling look: ice palette, rounded type, stone app icon, house (target) practices tab | ✅ done (v0.8.0) |
+| House scoring control | Scored drills on the execute screen: slide a granite stone along the ice track — snaps to the drill's point step, parks on the button at max, one-tap clear | ✅ done (v0.9.0) |
 | M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions
@@ -42,7 +43,9 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 - **Icon** — a granite stone with a red handle, sitting on the button.
 - **Tab** — Practices uses the `target` symbol (a house) in the tab bar.
 
-Each screen applies one `sheetSurface()` modifier (ice background + ice-deep bars); it flows through the environment, so pushed destinations and sheets inherit it. Tier 2 of the theme (a house-shaped scoring control) is queued after M6.
+Each screen applies one `sheetSurface()` modifier (ice background + ice-deep bars); it flows through the environment, so pushed destinations and sheets inherit it.
+
+**House scoring control (v0.9.0, tier 2 of the theme).** A scored drill is scored the curling way: a granite stone (top-down, with a red or yellow handle) slides along an ice track, snaps to the drill's point step, and parks on the button at the maximum score — the classic blue / white / red / white house rings sit at the track's max end. An unscored participant is a hollow stone ("—"); the ✕ clears a recorded score. One control works for any choice-matrix size, replacing the segmented picker / menu of v0.4.1.
 
 ## Getting started
 
