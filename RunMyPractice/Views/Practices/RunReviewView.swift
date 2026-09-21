@@ -59,10 +59,12 @@ struct RunReviewView: View {
                 }
             }
         }
+        .sheetSurface()
         .navigationTitle(session.practiceTitle ?? session.practice?.title ?? "Run Review")
         .navigationBarTitleDisplayMode(.inline)
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
     }
 
     // MARK: - Drills

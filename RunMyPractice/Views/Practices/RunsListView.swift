@@ -54,6 +54,7 @@ struct RunsListView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle("Runs")
             .searchable(text: $searchText, prompt: "Search runs by practice or participant")
             .navigationDestination(for: PracticeSession.self) { session in

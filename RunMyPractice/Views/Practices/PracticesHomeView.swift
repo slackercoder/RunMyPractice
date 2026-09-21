@@ -23,7 +23,7 @@ struct PracticesHomeView: View {
             Group {
                 if practices.isEmpty {
                     ContentUnavailableView {
-                        Label("No Practices Yet", systemImage: "list.bullet.rectangle")
+                        Label("No Practices Yet", systemImage: "target")
                     } description: {
                         Text("Create your first practice to get started.")
                     } actions: {
@@ -38,6 +38,7 @@ struct PracticesHomeView: View {
                     practiceList
                 }
             }
+            .sheetSurface()
             .navigationTitle("Practices")
             // Registered on the Group, not the List: the List only exists when
             // the query is non-empty, so a refetch that flips the branch would

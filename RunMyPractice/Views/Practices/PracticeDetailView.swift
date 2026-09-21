@@ -67,6 +67,7 @@ struct PracticeDetailView: View {
                 }
             }
         }
+        .sheetSurface()
         .navigationDestination(for: PracticeSession.self) { session in
             RunReviewView(session: session)
         }
@@ -125,6 +126,7 @@ struct PracticeDetailView: View {
         } message: {
             Text("This removes the practice template. Recorded runs are kept — each keeps a frozen copy of the plan as it was run.")
         }
+        .sheetBackdrop()
     }
 
     private func pastRunRow(_ session: PracticeSession) -> some View {

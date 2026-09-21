@@ -20,6 +20,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | M5 | Run history & review — browse recorded runs, read-only run review, per-practice past runs; coach notes on drills | ✅ done (v0.6.0) |
 | Navigation fix | Tapping a practice or a run no longer pops straight back (nested stack removed, destinations hoisted above conditional branches) | ✅ done (v0.6.1) |
 | Player standings | Per-player points total (team + solo scores) with one-tap reset for monthly leagues | ✅ done (v0.7.0) |
+| Sheet & Ice theme | Curling look: ice palette, rounded type, stone app icon, house (target) practices tab | ✅ done (v0.8.0) |
 | M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions
@@ -31,6 +32,17 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 - **Loud data failures** (v0.5.1): the app opens the SwiftData store through an explicit container with auto-migration, so a store written by an older app version (incompatible schema) or a corrupted store fails at launch and shows a recovery screen — *start with fresh data* (the old store file is first backed up inside the app's storage) or *try again*. The editor's Done and the execute screen's start no longer swallow save errors: they alert and keep the user where they are. Without this, a schema-mismatched store opened silently and every save failed invisibly (the v0.5.0 "practice not saving" bug).
 - **Privacy of synced data** (when identity lands, M6+): rosters (teams + players) sync as per-user private data — anchored to the signed-in user via `createdBy`. Practices are the shareable unit; session records stay private. See Technical Spec §7.
 - **iOS 17+** (SwiftData floor), iPhone + iPad.
+
+## Design
+
+**"Sheet & Ice" (v0.8.0).** The app is chrome-styled after a curling sheet, defined in a single place — `App/Theme.swift`:
+
+- **Palette** — cool ice-blue surfaces (`Theme.ice`), slightly deeper ice for bars (`Theme.iceDeep`), slate structure, with the classic red/yellow stone handles as accents. Every color is a dynamic light/dark pair, so dark mode works without extra code.
+- **Type** — rounded design app-wide (`.fontDesign(.rounded)` on the root).
+- **Icon** — a granite stone with a red handle, sitting on the button.
+- **Tab** — Practices uses the `target` symbol (a house) in the tab bar.
+
+Each screen applies one `sheetSurface()` modifier (ice background + ice-deep bars); it flows through the environment, so pushed destinations and sheets inherit it. Tier 2 of the theme (a house-shaped scoring control) is queued after M6.
 
 ## Getting started
 
@@ -63,7 +75,7 @@ RunMyPractice/
 ├── docs/                                  # functional + technical specs
 ├── RunMyPractice.xcodeproj/               # project + shared scheme
 └── RunMyPractice/
-    ├── App/RunMyPracticeApp.swift         # SwiftUI entry point + ModelContainer
+    ├── App/                               # entry point + ModelContainer, Theme.swift (Sheet & Ice)
     ├── Models/                            # SwiftData models (tech spec §4.1) + view extensions
     ├── ViewModels/                        # @Observable form models (MVVM)
     ├── Views/                             # RootView + feature screens (Practices, Players)

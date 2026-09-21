@@ -54,6 +54,7 @@ struct DrillFormView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle(viewModel.isCreating ? "New Drill" : "Edit Drill")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -70,6 +71,7 @@ struct DrillFormView: View {
         }
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
         .presentationDetents([.large])
     }
 

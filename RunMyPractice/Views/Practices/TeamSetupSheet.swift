@@ -118,6 +118,7 @@ struct TeamSetupSheet: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle("Participants")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -134,6 +135,7 @@ struct TeamSetupSheet: View {
         }
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
         .presentationDetents([.large])
         .sheet(
             isPresented: $showingPlayerForm,

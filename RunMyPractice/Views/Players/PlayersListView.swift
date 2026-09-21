@@ -116,6 +116,7 @@ struct PlayersListView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle("Players")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -211,6 +212,7 @@ private struct ResetStandingsSheet: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle("Reset Standings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -221,6 +223,7 @@ private struct ResetStandingsSheet: View {
                 }
             }
         }
+        .sheetBackdrop()
         .presentationDetents([.large])
     }
 

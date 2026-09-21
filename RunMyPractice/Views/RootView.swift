@@ -11,7 +11,7 @@ struct RootView: View {
         TabView {
             PracticesHomeView()
                 .tabItem {
-                    Label("Practices", systemImage: "list.bullet.rectangle")
+                    Label("Practices", systemImage: "target")
                 }
 
             RunsListView()
@@ -24,5 +24,8 @@ struct RootView: View {
                     Label("Players", systemImage: "person.2")
                 }
         }
+        .tint(Theme.tint)
+        .fontDesign(.rounded)
+        .tabBarIce()
     }
 }

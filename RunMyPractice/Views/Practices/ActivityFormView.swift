@@ -34,6 +34,7 @@ struct ActivityFormView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle(viewModel.isCreating ? "New Activity" : "Edit Activity")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -50,6 +51,7 @@ struct ActivityFormView: View {
         }
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
         .presentationDetents([.large])
     }
 

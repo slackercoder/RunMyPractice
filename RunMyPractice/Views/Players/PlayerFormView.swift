@@ -46,6 +46,7 @@ struct PlayerFormView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle("New Player")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
@@ -68,6 +69,7 @@ struct PlayerFormView: View {
         }
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
         .presentationDetents([.large])
     }
 

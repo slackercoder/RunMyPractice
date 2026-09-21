@@ -67,6 +67,7 @@ struct PracticeEditorView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle(trimmedTitle.isEmpty ? "Practice" : trimmedTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -91,6 +92,7 @@ struct PracticeEditorView: View {
         }
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
         .alert("Couldn't Save", isPresented: Binding(
             get: { saveProblem != nil },
             set: { if !$0 { saveProblem = nil } }

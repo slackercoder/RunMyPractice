@@ -85,6 +85,7 @@ struct ExecutePracticeView: View {
                     }
                 }
             }
+            .sheetSurface()
             .navigationTitle(session.practiceTitle ?? practice?.title ?? "Execute")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -153,6 +154,7 @@ struct ExecutePracticeView: View {
         }
         .frame(maxWidth: 700)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
     }
 
     // MARK: - Drills
@@ -470,6 +472,7 @@ private struct FinishSummarySheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .sheetSurface()
             .navigationTitle("Finish Practice")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -494,5 +497,6 @@ private struct FinishSummarySheet: View {
         .presentationDetents([.large])
         .frame(maxWidth: 480)
         .frame(maxWidth: .infinity)
+        .sheetBackdrop()
     }
 }
