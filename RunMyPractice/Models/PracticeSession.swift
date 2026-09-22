@@ -85,6 +85,7 @@ final class PracticeSession {
                     title: drill.title,
                     drillDescription: drill.drillDescription,
                     notes: drill.notes,
+                    runNotes: nil, // each run journals its own field notes (v0.9.1)
                     isScored: drill.isScored,
                     maxPoints: drill.maxPoints,
                     pointStep: drill.pointStep,

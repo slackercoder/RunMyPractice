@@ -16,6 +16,17 @@ final class Drill {
     /// Free text, shown in the drill form, during execution, and in run reviews.
     var notes: String?
 
+    /// Field notes for one executed run (v0.9.1): what the coach observed
+    /// *while running* this drill — form cues, corrections, who to watch.
+    ///
+    /// Only ever set on a session's frozen drill snapshots, never on the
+    /// template: the practice editor has no such field (templates keep it
+    /// nil), and `PracticeSession.start` snapshots a fresh nil into each run,
+    /// so every run of the same practice journals its own observations
+    /// independently. Editable on the execute screen; shown read-only in run
+    /// reviews alongside the snapshotted `notes`.
+    var runNotes: String?
+
     // Scoring configuration engine.
     var isScored: Bool // false = acknowledgement check-box only
     var isAcknowledged: Bool // template default flag; per-session state lives on DrillAcknowledgement
@@ -30,6 +41,7 @@ final class Drill {
         title: String,
         drillDescription: String? = nil,
         notes: String? = nil,
+        runNotes: String? = nil,
         isScored: Bool,
         maxPoints: Int? = nil,
         pointStep: Int? = nil,
@@ -41,6 +53,7 @@ final class Drill {
         self.title = title
         self.drillDescription = drillDescription
         self.notes = notes
+        self.runNotes = runNotes
         self.isScored = isScored
         self.isAcknowledged = false
         self.maxPoints = maxPoints

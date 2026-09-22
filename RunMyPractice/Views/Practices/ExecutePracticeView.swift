@@ -193,6 +193,32 @@ struct ExecutePracticeView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // Field notes for this run (v0.9.1): the coach's live journal for
+            // the drill — form observations, corrections, who to watch. Lives
+            // on the run's snapshot only (the template's `notes` above are the
+            // planning notes); autosaves, so the journal survives a pause.
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "square.and.pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                TextField(
+                    "Field notes for this run…",
+                    text: Binding(
+                        get: { drill.runNotes ?? "" },
+                        set: { drill.runNotes = $0.isEmpty ? nil : $0 }
+                    ),
+                    axis: .vertical
+                )
+                .font(.subheadline)
+                .lineLimit(1...4)
+            }
+            .padding(8)
+            .background(Theme.iceDeep.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .onChange(of: drill.runNotes) {
+                try? modelContext.save()
+            }
+
             if drill.isScored {
                 if participants.isEmpty {
                     Text("Score each participant — add participants first.")

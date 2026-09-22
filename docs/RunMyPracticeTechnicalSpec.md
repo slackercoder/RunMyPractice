@@ -15,6 +15,7 @@
 
 | 1.4.0 | 2026-09-20 | v0.6.0: drill `notes` field, session `completedDate` (resume matches only incomplete runs), run history & review UI — Runs tab, read-only run review, per-practice past runs (4.1, 4.2, 5 updated) | [Name] |
 | 1.5.0 | 2026-09-20 | v0.7.0: player standings — per-player point totals computed from recorded runs (team + solo scores), one-way StandingsReset marker for resets; v0.6.1 navigation fixes (nested stack removed, destinations hoisted) | [Name] |
+| 1.6.0 | 2026-09-22 | v0.9.1: drill `runNotes` field — per-drill field notes on *executed* practices (set on session snapshots only, fresh nil at run start); editable on the execute screen, read-only in run reviews (4.1, 4.2, 5 updated) | [Name] |
 
 ---
 
@@ -99,6 +100,7 @@ final class Drill {
     var title: String // E.g., "Progressive Slides", "Draw to the Button"
     var drillDescription: String?
     var notes: String? // Coach notes (v0.6.0): setup, cues, what to watch for
+var runNotes: String? // Field notes for this run (v0.9.1): coach observations made while executing; session snapshots only
 
     // Scoring Configuration Engine
     var isScored: Bool // False = Acknowledgement check-box only
@@ -200,6 +202,7 @@ final class PracticeSession {
                 let drillCopy = Drill(
                     title: drill.title,
                     notes: drill.notes,
+                    runNotes: nil, // each run journals its own field notes (v0.9.1)
                     isScored: drill.isScored,
                     maxPoints: drill.maxPoints,
                     pointStep: drill.pointStep,
@@ -420,6 +423,7 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 * **Ungraded Drill (`isScored == false`):** Renders a high-level list entry with an interactive toggle switch or checkbox. Toggling it creates (or updates) a `DrillAcknowledgement` record scoped to the current `PracticeSession` and this `Drill`, rather than mutating a flag on the drill itself.
 * **Graded Drill (`isScored == true`):** Loops through the `PracticeSessionTeam` entries for the current session. Renders an adaptive grid item or selector containing the generated integer increments from the step calculations; a selection creates/updates a `TeamScore` record linking that team, the drill, and the chosen score.
 * **Coach Notes (v0.6.0):** Each drill card renders the drill's `notes` (coach setup/cue text) under the description in the practice detail view and the live execute screen; a finished run's read-only review shows the notes as snapshotted at run time.
+* **Run Field Notes (v0.9.1):** Each drill card on the live execute screen also carries an editable `runNotes` field — the coach's journal for that drill *during this run* (form cues, corrections, who to watch). It is never present on template drills and always starts nil in a new session, so each execution records its own observations; the run review shows them alongside the snapshotted `notes`.
 * **Player Standings (v0.7.0):** The Players tab renders each player's current points total — every point a team they were on scored, plus solo scores, from runs after the latest `StandingsReset` marker — with sort by label or by points (leaderboard) and a one-tap reset (optional note).
 
 ---

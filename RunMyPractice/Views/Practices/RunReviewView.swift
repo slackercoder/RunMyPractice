@@ -101,6 +101,19 @@ struct RunReviewView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // The coach's field notes as recorded during the run (v0.9.1).
+            if let runNotes = drill.runNotes, !runNotes.isEmpty {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "square.and.pencil")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(runNotes)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if drill.isScored {
                 ForEach(participants) { participant in
                     HStack {

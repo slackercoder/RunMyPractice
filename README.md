@@ -22,6 +22,7 @@ A mobile-first, offline-first app that helps coaches plan, run, and record pract
 | Player standings | Per-player points total (team + solo scores) with one-tap reset for monthly leagues | ✅ done (v0.7.0) |
 | Sheet & Ice theme | Curling look: ice palette, rounded type, stone app icon, house (target) practices tab | ✅ done (v0.8.0) |
 | House scoring control | Scored drills on the execute screen: slide a granite stone along the ice track — snaps to the drill's point step, parks on the button at max, one-tap clear | ✅ done (v0.9.0) |
+| Run field notes | One notes field per drill on *executed* practices — jot observations while a run is in progress (form cues, corrections); the template's drill notes stay on the practice, each run journals its own, shown in run reviews | ✅ done (v0.9.1) |
 | M6 | Sync worker + .NET Web API backend | ⬜ planned (was M5, parked) |
 
 ## Key decisions
