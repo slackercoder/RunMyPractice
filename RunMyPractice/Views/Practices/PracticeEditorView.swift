@@ -162,9 +162,9 @@ struct PracticeEditorView: View {
     // MARK: - Drills
 
     private func drillRow(_ drill: Drill, in activity: Activity) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: drill.isScored ? "star.fill" : "checkmark.circle")
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(drill.isScored ? Color.yellow : Color.secondary)
             Text(drill.title)
             Spacer()
@@ -203,26 +203,33 @@ struct PracticeEditorView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+        .padding(.vertical, 4)
     }
 
     /// Up/down controls for a drill within its activity (v0.11.0). A move
     /// rewrites the sibling order values; Done persists, Cancel rolls back.
+    /// Each button carries a generous 36pt hit area (v0.11.1).
     private func moveButtons(drill: Drill, in activity: Activity) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Button {
                 drill.move(up: true, in: activity)
             } label: {
                 Image(systemName: "chevron.up")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveUp(in: activity))
             Button {
                 drill.move(up: false, in: activity)
             } label: {
                 Image(systemName: "chevron.down")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveDown(in: activity))
         }
-        .font(.caption)
         .buttonStyle(.borderless)
         .accessibilityLabel("Move \(drill.title)")
     }

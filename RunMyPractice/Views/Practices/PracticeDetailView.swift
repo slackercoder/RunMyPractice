@@ -177,7 +177,9 @@ struct PracticeDetailView: View {
                     activityForm = ActivityFormViewModel(activity: activity, parentPractice: practice, isCreating: false)
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.subheadline)
+                        .font(.title3)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Edit \(activity.title)")
             }
@@ -190,16 +192,16 @@ struct PracticeDetailView: View {
                 drillRow(drill, in: activity)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 6)
     }
 
     private func drillRow(_ drill: Drill, in activity: Activity) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             Image(systemName: drill.isScored ? "star.fill" : "checkmark.circle")
-                .font(.caption)
+                .font(.body)
                 .foregroundStyle(drill.isScored ? Color.yellow : Color.secondary)
             Text(drill.title)
-                .font(.subheadline)
+                .font(.body)
             Spacer()
             if drill.isScored, let maxPoints = drill.maxPoints {
                 Text("0–\(maxPoints) pts")
@@ -215,10 +217,13 @@ struct PracticeDetailView: View {
                 drillForm = DrillFormViewModel(drill: drill, parentActivity: activity, isCreating: false)
             } label: {
                 Image(systemName: "pencil")
-                    .font(.subheadline)
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("Edit \(drill.title)")
         }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Reordering (v0.11.0)
@@ -227,41 +232,51 @@ struct PracticeDetailView: View {
     /// rewrites the sibling order values and persists immediately — this view
     /// has no "Done" step, and the next execution runs in the saved order.
     private func moveButtons(activity: Activity) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Button {
                 if activity.move(up: true, in: practice) { try? modelContext.save() }
             } label: {
                 Image(systemName: "chevron.up")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!activity.canMoveUp(in: practice))
             Button {
                 if activity.move(up: false, in: practice) { try? modelContext.save() }
             } label: {
                 Image(systemName: "chevron.down")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!activity.canMoveDown(in: practice))
         }
-        .font(.subheadline)
         .buttonStyle(.borderless)
         .accessibilityLabel("Move \(activity.title)")
     }
 
     private func moveButtons(drill: Drill, in activity: Activity) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Button {
                 if drill.move(up: true, in: activity) { try? modelContext.save() }
             } label: {
                 Image(systemName: "chevron.up")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveUp(in: activity))
             Button {
                 if drill.move(up: false, in: activity) { try? modelContext.save() }
             } label: {
                 Image(systemName: "chevron.down")
+                    .font(.title3)
+                    .frame(width: 36, height: 36)
+                    .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveDown(in: activity))
         }
-        .font(.subheadline)
         .buttonStyle(.borderless)
         .accessibilityLabel("Move \(drill.title)")
     }

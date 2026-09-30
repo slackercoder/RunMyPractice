@@ -4,7 +4,7 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.8.0
+* **Version:** 1.8.1
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
@@ -18,6 +18,7 @@
 | 1.6.0 | 2026-09-22 | v0.9.1: drill `runNotes` field — per-drill field notes on *executed* practices (set on session snapshots only, fresh nil at run start); editable on the execute screen, read-only in run reviews (4.1, 4.2, 5 updated) | [Name] |
 | 1.7.0 | 2026-09-29 | M6a: sync backend implemented in the RunMy suite (coach-scoped upsert of practices + sessions, session snapshot tables, coach-ID header auth, X-Coach-Id 401/400/409); v0.10.0: activities reusable — "Add Activity" offers new or copy-of-existing (copy-never-reference rule); activities/drills editable from the practice detail view (4.1, 5, 6 updated) | [Name] |
 | 1.8.0 | 2026-09-30 | v0.11.0: reordering — activities drag-reorder in the practice editor (edit mode) and via up/down controls on the practice view; drills via up/down within their activity in both places; no schema change — Order columns already exist end-to-end (5 updated) | [Name] |
+| 1.8.1 | 2026-09-30 | v0.11.1: larger touch targets — 36pt hit areas on the move/edit icon buttons, bigger row fonts and padding (5 updated) | [Name] |
 
 ---
 
