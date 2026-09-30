@@ -58,6 +58,7 @@
   * Being able to see the existing practice.
   * Being able to interact with the practice to enter data required from the practice metrics.
   * Being able to edit an activity or a drill directly from the practice detail view without leaving it.
+  * Being able to reorder activities, and drills within an activity, from the practice view.
 
 ### 5.5 Player/Athlete List
 * **Description** The list of available players/athletes.

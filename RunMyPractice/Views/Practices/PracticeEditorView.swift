@@ -72,6 +72,11 @@ struct PracticeEditorView: View {
             .navigationTitle(trimmedTitle.isEmpty ? "Practice" : trimmedTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    // v0.11.0: enables drag-reordering of the activity rows
+                    // (their .onMove handlers were otherwise unreachable).
+                    EditButton()
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         cancel()
@@ -163,6 +168,9 @@ struct PracticeEditorView: View {
                 .foregroundStyle(drill.isScored ? Color.yellow : Color.secondary)
             Text(drill.title)
             Spacer()
+            // v0.11.0: drills live inside a DisclosureGroup, where SwiftUI's
+            // drag-reordering doesn't reach — explicit up/down instead.
+            moveButtons(drill: drill, in: activity)
             if drill.isCoachDrill {
                 Text("coach")
                     .font(.caption2)
@@ -195,6 +203,28 @@ struct PracticeEditorView: View {
                 Label("Delete", systemImage: "trash")
             }
         }
+    }
+
+    /// Up/down controls for a drill within its activity (v0.11.0). A move
+    /// rewrites the sibling order values; Done persists, Cancel rolls back.
+    private func moveButtons(drill: Drill, in activity: Activity) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                drill.move(up: true, in: activity)
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .disabled(!drill.canMoveUp(in: activity))
+            Button {
+                drill.move(up: false, in: activity)
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .disabled(!drill.canMoveDown(in: activity))
+        }
+        .font(.caption)
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Move \(drill.title)")
     }
 
     // MARK: - Actions

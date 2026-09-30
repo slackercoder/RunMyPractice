@@ -11,7 +11,8 @@ import SwiftData
 /// The interactive parts:
 /// - In-place editing of an activity or drill: form sheets (v0.10.0) — no
 ///   need to leave the screen or go into the full editor for a quick fix
-/// - Adding activities/reordering: PracticeEditorView (M3)
+/// - Reordering (v0.11.0): up/down controls on each activity and drill
+/// - Adding activities: PracticeEditorView (M3)
 /// - Live execution (teams, check-offs, scores): ExecutePracticeView (M4)
 /// - Past runs (v0.6.0): every recorded run for this template, newest first;
 ///   tap to review it read-only (RunReviewView).
@@ -171,6 +172,7 @@ struct PracticeDetailView: View {
                 Spacer()
                 Text("\(activity.timeAllottedInMinutes) min")
                     .foregroundStyle(.secondary)
+                moveButtons(activity: activity)
                 Button {
                     activityForm = ActivityFormViewModel(activity: activity, parentPractice: practice, isCreating: false)
                 } label: {
@@ -208,6 +210,7 @@ struct PracticeDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            moveButtons(drill: drill, in: activity)
             Button {
                 drillForm = DrillFormViewModel(drill: drill, parentActivity: activity, isCreating: false)
             } label: {
@@ -216,6 +219,51 @@ struct PracticeDetailView: View {
             }
             .accessibilityLabel("Edit \(drill.title)")
         }
+    }
+
+    // MARK: - Reordering (v0.11.0)
+
+    /// Up/down controls for an activity within this practice. A move
+    /// rewrites the sibling order values and persists immediately — this view
+    /// has no "Done" step, and the next execution runs in the saved order.
+    private func moveButtons(activity: Activity) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                if activity.move(up: true, in: practice) { try? modelContext.save() }
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .disabled(!activity.canMoveUp(in: practice))
+            Button {
+                if activity.move(up: false, in: practice) { try? modelContext.save() }
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .disabled(!activity.canMoveDown(in: practice))
+        }
+        .font(.subheadline)
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Move \(activity.title)")
+    }
+
+    private func moveButtons(drill: Drill, in activity: Activity) -> some View {
+        HStack(spacing: 4) {
+            Button {
+                if drill.move(up: true, in: activity) { try? modelContext.save() }
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .disabled(!drill.canMoveUp(in: activity))
+            Button {
+                if drill.move(up: false, in: activity) { try? modelContext.save() }
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .disabled(!drill.canMoveDown(in: activity))
+        }
+        .font(.subheadline)
+        .buttonStyle(.borderless)
+        .accessibilityLabel("Move \(drill.title)")
     }
 
     /// Resumes the in-progress (unsynced) session for this practice, or starts

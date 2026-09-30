@@ -4,7 +4,7 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.7.0
+* **Version:** 1.8.0
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
@@ -17,6 +17,7 @@
 | 1.5.0 | 2026-09-20 | v0.7.0: player standings — per-player point totals computed from recorded runs (team + solo scores), one-way StandingsReset marker for resets; v0.6.1 navigation fixes (nested stack removed, destinations hoisted) | [Name] |
 | 1.6.0 | 2026-09-22 | v0.9.1: drill `runNotes` field — per-drill field notes on *executed* practices (set on session snapshots only, fresh nil at run start); editable on the execute screen, read-only in run reviews (4.1, 4.2, 5 updated) | [Name] |
 | 1.7.0 | 2026-09-29 | M6a: sync backend implemented in the RunMy suite (coach-scoped upsert of practices + sessions, session snapshot tables, coach-ID header auth, X-Coach-Id 401/400/409); v0.10.0: activities reusable — "Add Activity" offers new or copy-of-existing (copy-never-reference rule); activities/drills editable from the practice detail view (4.1, 5, 6 updated) | [Name] |
+| 1.8.0 | 2026-09-30 | v0.11.0: reordering — activities drag-reorder in the practice editor (edit mode) and via up/down controls on the practice view; drills via up/down within their activity in both places; no schema change — Order columns already exist end-to-end (5 updated) | [Name] |
 
 ---
 
@@ -430,6 +431,7 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 * **Run Field Notes (v0.9.1):** Each drill card on the live execute screen also carries an editable `runNotes` field — the coach's journal for that drill *during this run* (form cues, corrections, who to watch). It is never present on template drills and always starts nil in a new session, so each execution records its own observations; the run review shows them alongside the snapshotted `notes`.
 * **Player Standings (v0.7.0):** The Players tab renders each player's current points total — every point a team they were on scored, plus solo scores, from runs after the latest `StandingsReset` marker — with sort by label or by points (leaderboard) and a one-tap reset (optional note).
 * **Activity Reuse (v0.10.0):** "Add Activity" in the practice editor offers two choices — start a new activity, or choose one from the coach's other practices, which **copies** it (the activity and every drill, under fresh client UUIDs, `remoteId` nil) into the practice being edited; the copy syncs as its own records, and editing it can never affect the original. Activities and drills are also directly editable from the practice detail view via pencil buttons that open the same form sheets.
+* **Reordering (v0.11.0):** Activities reorder by drag in the practice editor (edit mode) and by up/down controls on the practice view; drills reorder within their activity by up/down controls in both places. A move swaps with the neighbor and reindexes the sequential 0...n-1 `order` values, which the session snapshots at run start (v0.5.0), so a run executes in the saved order. No schema change was needed — `order` already exists on `Activity`, `Drill`, and both session-snapshot tables, and sync upserts the full state (Section 6).
 
 ---
 

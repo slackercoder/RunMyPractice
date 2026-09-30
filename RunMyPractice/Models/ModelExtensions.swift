@@ -77,6 +77,81 @@ extension Activity {
         practice.activities.append(copy)
         return copy
     }
+
+    // MARK: - Reordering (v0.11.0)
+
+    /// The activity's position within its parent practice, or nil if it
+    /// doesn't belong to it.
+    private func position(in practice: Practice) -> (index: Int, count: Int)? {
+        let items = practice.orderedActivities
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return nil }
+        return (index, items.count)
+    }
+
+    /// Whether `move(up:)` / `move(down:)` would swap with a neighbor.
+    func canMoveUp(in practice: Practice) -> Bool {
+        position(in: practice).map { $0.index > 0 } ?? false
+    }
+
+    func canMoveDown(in practice: Practice) -> Bool {
+        position(in: practice).map { $0.index < $0.count - 1 } ?? false
+    }
+
+    /// Swaps the order with the neighboring activity and reindexes the
+    /// siblings to a sequential 0...n-1.
+    ///
+    /// Runs execute in this order: a session snapshots the order values at
+    /// run start (v0.5.0), so a reorder takes effect from the next execution.
+    /// The `order` column is synced as part of the full template upsert, so
+    /// no schema change is involved.
+    @discardableResult
+    func move(up: Bool, in practice: Practice) -> Bool {
+        guard let (index, count) = position(in: practice) else { return false }
+        let target = up ? index - 1 : index + 1
+        guard (0..<count).contains(target) else { return false }
+        var items = practice.orderedActivities
+        items.move(fromOffsets: IndexSet(integer: index), toOffset: up ? target : target + 1)
+        for (i, item) in items.enumerated() {
+            item.order = i
+        }
+        return true
+    }
+}
+
+extension Drill {
+    // MARK: - Reordering (v0.11.0)
+
+    /// The drill's position within its parent activity, or nil if it doesn't
+    /// belong to it.
+    private func position(in activity: Activity) -> (index: Int, count: Int)? {
+        let items = activity.orderedDrills
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return nil }
+        return (index, items.count)
+    }
+
+    func canMoveUp(in activity: Activity) -> Bool {
+        position(in: activity).map { $0.index > 0 } ?? false
+    }
+
+    func canMoveDown(in activity: Activity) -> Bool {
+        position(in: activity).map { $0.index < $0.count - 1 } ?? false
+    }
+
+    /// Swaps the order with the neighboring drill within its activity and
+    /// reindexes the siblings to a sequential 0...n-1 (same semantics as
+    /// `Activity.move(up:in:)`).
+    @discardableResult
+    func move(up: Bool, in activity: Activity) -> Bool {
+        guard let (index, count) = position(in: activity) else { return false }
+        let target = up ? index - 1 : index + 1
+        guard (0..<count).contains(target) else { return false }
+        var items = activity.orderedDrills
+        items.move(fromOffsets: IndexSet(integer: index), toOffset: up ? target : target + 1)
+        for (i, item) in items.enumerated() {
+            item.order = i
+        }
+        return true
+    }
 }
 
 extension PracticeSession {
