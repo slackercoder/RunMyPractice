@@ -50,12 +50,14 @@
 * **Description** How users create a new practice.
 * **Acceptance Criteria:**
   * Creating a practice using the tools provided.
+  * Adding an activity offers a choice: start a new one, or choose an existing one from another practice (which copies it into the new practice rather than referencing the original).
 
 ### 5.4 View/Execute Practice
 * **Description** How users view/execute a new practice.
 * **Acceptance Criteria:**
   * Being able to see the existing practice.
   * Being able to interact with the practice to enter data required from the practice metrics.
+  * Being able to edit an activity or a drill directly from the practice detail view without leaving it.
 
 ### 5.5 Player/Athlete List
 * **Description** The list of available players/athletes.
@@ -67,7 +69,7 @@
 ## 6. User Experience (UX) & User Interface (UI)
 * **User Flows:** 
   * **Create Practice Flow:** Start at home page. Click/Tap `Create New Practice` button. Enter view to create a practice.
-  * **Edit Practice Flow:** Full view of editting a practice, whether an existing practice or a "new" blank practice.
+  * **Edit Practice Flow:** Full view of editting a practice, whether an existing practice or a "new" blank practice. Adding an activity offers a choice: start a new one, or choose and copy an existing one from another practice.
   * **Execute Practice Flow:** Full view of executing a practice. Allowing the coach to enter data as required (creating teams for exercises, checking off completed tasks, scoring exercises, etc).
   * **User Edit Flow:** View the list of users and either add and/or remove users based on needs.
 * **Wireframes/Mockups:** To be determined through discovery.

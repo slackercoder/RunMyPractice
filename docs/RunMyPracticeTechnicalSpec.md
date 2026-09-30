@@ -4,7 +4,7 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.5.0
+* **Version:** 1.7.0
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
@@ -16,6 +16,7 @@
 | 1.4.0 | 2026-09-20 | v0.6.0: drill `notes` field, session `completedDate` (resume matches only incomplete runs), run history & review UI — Runs tab, read-only run review, per-practice past runs (4.1, 4.2, 5 updated) | [Name] |
 | 1.5.0 | 2026-09-20 | v0.7.0: player standings — per-player point totals computed from recorded runs (team + solo scores), one-way StandingsReset marker for resets; v0.6.1 navigation fixes (nested stack removed, destinations hoisted) | [Name] |
 | 1.6.0 | 2026-09-22 | v0.9.1: drill `runNotes` field — per-drill field notes on *executed* practices (set on session snapshots only, fresh nil at run start); editable on the execute screen, read-only in run reviews (4.1, 4.2, 5 updated) | [Name] |
+| 1.7.0 | 2026-09-29 | M6a: sync backend implemented in the RunMy suite (coach-scoped upsert of practices + sessions, session snapshot tables, coach-ID header auth, X-Coach-Id 401/400/409); v0.10.0: activities reusable — "Add Activity" offers new or copy-of-existing (copy-never-reference rule); activities/drills editable from the practice detail view (4.1, 5, 6 updated) | [Name] |
 
 ---
 
@@ -68,6 +69,9 @@ final class Practice {
     }
 }
 
+// Belongs to exactly one practice (v0.10.0). Reuse is copy-never-reference:
+// copying an activity duplicates it and its drills under fresh client UUIDs,
+// so each practice stays a self-contained, independently shareable template.
 @Model
 final class Activity {
     @Attribute(.unique) var id: UUID
@@ -425,6 +429,7 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 * **Coach Notes (v0.6.0):** Each drill card renders the drill's `notes` (coach setup/cue text) under the description in the practice detail view and the live execute screen; a finished run's read-only review shows the notes as snapshotted at run time.
 * **Run Field Notes (v0.9.1):** Each drill card on the live execute screen also carries an editable `runNotes` field — the coach's journal for that drill *during this run* (form cues, corrections, who to watch). It is never present on template drills and always starts nil in a new session, so each execution records its own observations; the run review shows them alongside the snapshotted `notes`.
 * **Player Standings (v0.7.0):** The Players tab renders each player's current points total — every point a team they were on scored, plus solo scores, from runs after the latest `StandingsReset` marker — with sort by label or by points (leaderboard) and a one-tap reset (optional note).
+* **Activity Reuse (v0.10.0):** "Add Activity" in the practice editor offers two choices — start a new activity, or choose one from the coach's other practices, which **copies** it (the activity and every drill, under fresh client UUIDs, `remoteId` nil) into the practice being edited; the copy syncs as its own records, and editing it can never affect the original. Activities and drills are also directly editable from the practice detail view via pencil buttons that open the same form sheets.
 
 ---
 
@@ -524,6 +529,11 @@ In this example, `practiceId` points at the "Curling Fundamentals" `Practice` te
 
 #### Response
 The server responds with the `id` → `remoteId` mapping for every record it persisted (session, session-teams, scores, acknowledgements), so the client can populate `remoteId` locally and mark the session `isSynced = true`.
+
+### Push Sync Endpoint: POST `/api/v1/sync/practices`
+The template side of sync (M6a, shipped in the RunMy suite as `Practice.Api`): accepts a list of `SyncPracticesRequest` records — the complete current state of each `Practice` with its nested `activities` (each with `drills`) — and upserts them coach-scoped by client UUID (upsert = full replace), so a practice creates on first sync and updates on every later edit. It responds with the same `id` → `remoteId` mapping shape (practice, activity, drill), which the client backfills on the template records.
+
+Both endpoints require the calling coach's identity in the `X-Coach-Id` request header and scope every read and write to it; the API answers 401 when the header is absent or malformed and 400 on an invalid payload.
 
 ---
 

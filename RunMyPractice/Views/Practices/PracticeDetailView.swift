@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Read-only view of a practice template (the "view" part of Functional Spec §5.4).
+/// View of a practice template (the "view" part of Functional Spec §5.4).
 ///
 /// A practice is a reusable, freely editable/shareable plan. Each time it is
 /// executed, a new `PracticeSession` is created that snapshots the plan at
@@ -9,7 +9,9 @@ import SwiftData
 /// another coach — never rewrites recorded runs.
 ///
 /// The interactive parts:
-/// - Editing/adding activities and drills: PracticeEditorView (M3)
+/// - In-place editing of an activity or drill: form sheets (v0.10.0) — no
+///   need to leave the screen or go into the full editor for a quick fix
+/// - Adding activities/reordering: PracticeEditorView (M3)
 /// - Live execution (teams, check-offs, scores): ExecutePracticeView (M4)
 /// - Past runs (v0.6.0): every recorded run for this template, newest first;
 ///   tap to review it read-only (RunReviewView).
@@ -35,6 +37,8 @@ struct PracticeDetailView: View {
     @State private var isEditing = false
     @State private var activeSession: PracticeSession?
     @State private var sessionStartProblem: String?
+    @State private var activityForm: ActivityFormViewModel?
+    @State private var drillForm: DrillFormViewModel?
 
     var body: some View {
         List {
@@ -126,6 +130,12 @@ struct PracticeDetailView: View {
         } message: {
             Text("This removes the practice template. Recorded runs are kept — each keeps a frozen copy of the plan as it was run.")
         }
+        .sheet(item: $activityForm) { viewModel in
+            ActivityFormView(viewModel: viewModel)
+        }
+        .sheet(item: $drillForm) { viewModel in
+            DrillFormView(viewModel: viewModel)
+        }
         .sheetBackdrop()
     }
 
@@ -155,12 +165,19 @@ struct PracticeDetailView: View {
 
     private func activitySection(_ activity: Activity) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
+            HStack(spacing: 8) {
                 Text(activity.title)
                     .font(.headline)
                 Spacer()
                 Text("\(activity.timeAllottedInMinutes) min")
                     .foregroundStyle(.secondary)
+                Button {
+                    activityForm = ActivityFormViewModel(activity: activity, parentPractice: practice, isCreating: false)
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.subheadline)
+                }
+                .accessibilityLabel("Edit \(activity.title)")
             }
             if let description = activity.activityDescription, !description.isEmpty {
                 Text(description)
@@ -168,13 +185,13 @@ struct PracticeDetailView: View {
                     .foregroundStyle(.secondary)
             }
             ForEach(activity.orderedDrills) { drill in
-                drillRow(drill)
+                drillRow(drill, in: activity)
             }
         }
         .padding(.vertical, 2)
     }
 
-    private func drillRow(_ drill: Drill) -> some View {
+    private func drillRow(_ drill: Drill, in activity: Activity) -> some View {
         HStack(spacing: 6) {
             Image(systemName: drill.isScored ? "star.fill" : "checkmark.circle")
                 .font(.caption)
@@ -191,6 +208,13 @@ struct PracticeDetailView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            Button {
+                drillForm = DrillFormViewModel(drill: drill, parentActivity: activity, isCreating: false)
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.subheadline)
+            }
+            .accessibilityLabel("Edit \(drill.title)")
         }
     }
 

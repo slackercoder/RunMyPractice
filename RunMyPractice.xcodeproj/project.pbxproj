@@ -39,6 +39,7 @@
 		1B0000000000000000000021 /* RunReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000025 /* RunReviewView.swift */; };
 		1B0000000000000000000022 /* StandingsReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000026 /* StandingsReset.swift */; };
 		1B0000000000000000000023 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000027 /* Theme.swift */; };
+		1B0000000000000000000024 /* ActivityPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000000000000000000028 /* ActivityPickerSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +78,7 @@
 		1A0000000000000000000025 /* RunReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunReviewView.swift; sourceTree = "<group>"; };
 		1A0000000000000000000026 /* StandingsReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StandingsReset.swift; sourceTree = "<group>"; };
 		1A0000000000000000000027 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		1A0000000000000000000028 /* ActivityPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityPickerSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -189,6 +191,7 @@
 				1A0000000000000000000021 /* TeamSetupSheet.swift */,
 				1A0000000000000000000024 /* RunsListView.swift */,
 				1A0000000000000000000025 /* RunReviewView.swift */,
+				1A0000000000000000000028 /* ActivityPickerSheet.swift */,
 			);
 			path = Practices;
 			sourceTree = "<group>";
@@ -303,6 +306,7 @@
 				1B0000000000000000000021 /* RunReviewView.swift in Sources */,
 				1B0000000000000000000022 /* StandingsReset.swift in Sources */,
 				1B0000000000000000000023 /* Theme.swift in Sources */,
+				1B0000000000000000000024 /* ActivityPickerSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -445,7 +449,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.1;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mariofolino.practice;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -477,7 +481,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.9.1;
+				MARKETING_VERSION = 0.10.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mariofolino.practice;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

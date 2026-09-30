@@ -18,6 +18,7 @@ struct PracticeEditorView: View {
 
     @State private var activityForm: ActivityFormViewModel?
     @State private var drillForm: DrillFormViewModel?
+    @State private var showingActivityPicker = false
     @State private var expandedActivities: Set<UUID> = []
     @State private var saveProblem: String?
 
@@ -54,7 +55,7 @@ struct PracticeEditorView: View {
                     .onMove(perform: moveActivities)
 
                     Button {
-                        addActivity()
+                        showingActivityPicker = true
                     } label: {
                         Label("Add Activity", systemImage: "plus.circle")
                     }
@@ -88,6 +89,16 @@ struct PracticeEditorView: View {
             }
             .sheet(item: $drillForm) { viewModel in
                 DrillFormView(viewModel: viewModel)
+            }
+            .sheet(isPresented: $showingActivityPicker) {
+                ActivityPickerSheet(practice: practice) { selected in
+                    // The picker performs the model work (new placeholder or a
+                    // copy of an existing activity); the editor then opens the
+                    // form so the user can rename the row on the spot.
+                    expandedActivities.insert(selected.id)
+                    showingActivityPicker = false
+                    activityForm = ActivityFormViewModel(activity: selected, parentPractice: practice, isCreating: true)
+                }
             }
         }
         .frame(maxWidth: 700)
@@ -187,14 +198,6 @@ struct PracticeEditorView: View {
     }
 
     // MARK: - Actions
-
-    private func addActivity() {
-        let activity = Activity(title: "New Activity", timeAllottedInMinutes: 10, order: orderedActivities.count)
-        modelContext.insert(activity)
-        practice.activities.append(activity)
-        expandedActivities.insert(activity.id)
-        activityForm = ActivityFormViewModel(activity: activity, parentPractice: practice, isCreating: true)
-    }
 
     private func addDrill(to activity: Activity) {
         let drill = Drill(title: "New Drill", isScored: false, order: activity.orderedDrills.count)

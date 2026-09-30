@@ -35,6 +35,48 @@ extension Activity {
     var orderedDrills: [Drill] {
         drills.sorted { $0.order < $1.order }
     }
+
+    /// Copies this activity — and every drill it contains — into `practice`
+    /// as fresh records (v0.10.0), and returns the inserted copy.
+    ///
+    /// **Copy, never reference.** Activities are *reusable* by copying: each
+    /// practice stays a self-contained template (Technical Spec §2), so the
+    /// copy gets fresh client UUIDs and `remoteId == nil` and syncs as its
+    /// own records. Editing the copy can therefore never affect the original —
+    /// which is also the rule activity sharing will follow when it lands.
+    /// Template `runNotes` stay nil: runs journal their own observations (v0.9.1).
+    @discardableResult
+    func copy(into practice: Practice, in context: ModelContext) -> Activity {
+        let creator = practice.createdBy ?? createdBy
+        let copy = Activity(
+            title: title,
+            activityDescription: activityDescription,
+            timeAllottedInMinutes: timeAllottedInMinutes,
+            order: practice.orderedActivities.count,
+            createdBy: creator
+        )
+        context.insert(copy)
+
+        for (index, drill) in orderedDrills.enumerated() {
+            let drillCopy = Drill(
+                title: drill.title,
+                drillDescription: drill.drillDescription,
+                notes: drill.notes,
+                runNotes: nil,
+                isScored: drill.isScored,
+                maxPoints: drill.maxPoints,
+                pointStep: drill.pointStep,
+                isCoachDrill: drill.isCoachDrill,
+                order: index,
+                createdBy: creator
+            )
+            context.insert(drillCopy)
+            copy.drills.append(drillCopy)
+        }
+
+        practice.activities.append(copy)
+        return copy
+    }
 }
 
 extension PracticeSession {

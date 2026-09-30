@@ -77,6 +77,9 @@ struct DrillFormView: View {
 
     private func save() {
         viewModel.save()
+        // v0.10.0: the form is also reached from the practice detail view,
+        // where no later "Done" step would persist — save here in both paths.
+        try? modelContext.save()
         dismiss()
     }
 
