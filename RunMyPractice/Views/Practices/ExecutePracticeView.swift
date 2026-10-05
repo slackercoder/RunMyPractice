@@ -629,7 +629,7 @@ private struct FinishSummarySheet: View {
                 }
 
                 Section {
-                    Text("The session is saved on this device. Cloud sync arrives in milestone M6.")
+                    Text("The session is saved on this device. It syncs to the cloud automatically the next time the app opens — or tap Sync on the Practices tab.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

@@ -19,7 +19,10 @@ struct PracticeEditorView: View {
     @State private var activityForm: ActivityFormViewModel?
     @State private var drillForm: DrillFormViewModel?
     @State private var showingActivityPicker = false
+    @State private var drillPickerActivity: Activity?
     @State private var expandedActivities: Set<UUID> = []
+    @State private var activityToDelete: Activity?
+    @State private var drillToDelete: Drill?
     @State private var saveProblem: String?
 
     private var orderedActivities: [Activity] {
@@ -95,14 +98,38 @@ struct PracticeEditorView: View {
             .sheet(item: $drillForm) { viewModel in
                 DrillFormView(viewModel: viewModel)
             }
+            .sheet(item: $drillPickerActivity) { target in
+                DrillPickerSheet(activity: target) { selected in
+                    // The picker performs the model work (a new placeholder
+                    // or a copy of a library drill); the editor then opens
+                    // the form so the user can rename the row on the spot.
+                    //
+                    // v0.13.0: nil the picker first, then present the form on
+                    // the next runloop turn. Presenting a sheet in the *same
+                    // transaction* that dismisses a sibling sheet on this same
+                    // container makes SwiftUI present the new sheet blank — the
+                    // reported empty drill form.
+                    expandedActivities.insert(target.id)
+                    drillPickerActivity = nil
+                    Task { @MainActor in
+                        drillForm = DrillFormViewModel(drill: selected, parentActivity: target, isCreating: true)
+                    }
+                }
+            }
             .sheet(isPresented: $showingActivityPicker) {
                 ActivityPickerSheet(practice: practice) { selected in
                     // The picker performs the model work (new placeholder or a
                     // copy of an existing activity); the editor then opens the
                     // form so the user can rename the row on the spot.
+                    //
+                    // v0.13.0: same one-tick deferral as the drill path — the
+                    // form must present after the picker's dismissal, not in
+                    // the same transaction, or the new sheet can come up blank.
                     expandedActivities.insert(selected.id)
                     showingActivityPicker = false
-                    activityForm = ActivityFormViewModel(activity: selected, parentPractice: practice, isCreating: true)
+                    Task { @MainActor in
+                        activityForm = ActivityFormViewModel(activity: selected, parentPractice: practice, isCreating: true)
+                    }
                 }
             }
         }
@@ -117,6 +144,50 @@ struct PracticeEditorView: View {
         } message: {
             Text(saveProblem ?? "Your changes were not saved.")
         }
+        // v0.13.0: confirm before destroying — and reassure about copies.
+        .confirmationDialog(
+            "Delete this activity?",
+            isPresented: Binding(
+                get: { activityToDelete != nil },
+                set: { if !$0 { activityToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let activity = activityToDelete {
+                    modelContext.delete(activity) // drills cascade with their activity
+                }
+            }
+        } message: {
+            if let activity = activityToDelete {
+                Text("This removes \"\(activity.title)\" and its \(activity.orderedDrills.count) drill\(activity.orderedDrills.count == 1 ? "" : "s") from this practice only — other practices and the drill library keep their own copies.")
+            }
+        }
+        .confirmationDialog(
+            "Delete this drill?",
+            isPresented: Binding(
+                get: { drillToDelete != nil },
+                set: { if !$0 { drillToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let drill = drillToDelete else { return }
+                // Copy-never-reference: remove this practice's copy only; a
+                // library drill of the same name and other practices' copies
+                // are untouched.
+                if let activity = practice.orderedActivities.first(where: {
+                    $0.drills.contains(where: { $0.id == drill.id })
+                }) {
+                    activity.drills.removeAll { $0.id == drill.id }
+                }
+                modelContext.delete(drill)
+            }
+        } message: {
+            if let drill = drillToDelete {
+                Text("This removes \"\(drill.title)\" from this practice only — the drill library and other practices keep their own copies.")
+            }
+        }
     }
 
     // MARK: - Activities
@@ -129,17 +200,34 @@ struct PracticeEditorView: View {
             .onMove { moveDrills(in: activity, from: $0, to: $1) }
 
             Button {
-                addDrill(to: activity)
+                // v0.12.0: pick — a fresh drill or a copy from the library.
+                // v0.13.0: item-based presentation (see the sheet below) — one
+                // source of truth instead of a boolean plus an optional.
+                drillPickerActivity = activity
             } label: {
                 Label("Add Drill", systemImage: "plus.circle")
             }
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(activity.title)
-                    .font(.headline)
-                Text("\(activity.timeAllottedInMinutes) min · \(activity.orderedDrills.count) drills")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(activity.title)
+                        .font(.headline)
+                    Text("\(activity.timeAllottedInMinutes) min · \(activity.orderedDrills.count) drills")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                // v0.13.0: explicit delete with confirmation — a swipe is not
+                // a fat-finger-friendly affordance (drills cascade).
+                Button {
+                    activityToDelete = activity
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Delete \(activity.title)")
             }
         }
         .swipeActions(edge: .leading) {
@@ -149,13 +237,6 @@ struct PracticeEditorView: View {
                 Label("Edit", systemImage: "pencil")
             }
             .tint(.orange)
-        }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                modelContext.delete(activity) // drills cascade with their activity
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
         }
     }
 
@@ -187,6 +268,17 @@ struct PracticeEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
+            // v0.13.0: explicit delete with confirmation — a swipe is not a
+            // fat-finger-friendly affordance.
+            Button {
+                drillToDelete = drill
+            } label: {
+                Image(systemName: "trash")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Delete \(drill.title)")
         }
         .swipeActions(edge: .leading) {
             Button {
@@ -196,19 +288,12 @@ struct PracticeEditorView: View {
             }
             .tint(.orange)
         }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                modelContext.delete(drill)
-            } label: {
-                Label("Delete", systemImage: "trash")
-            }
-        }
         .padding(.vertical, 4)
     }
 
     /// Up/down controls for a drill within its activity (v0.11.0). A move
     /// rewrites the sibling order values; Done persists, Cancel rolls back.
-    /// Each button carries a generous 36pt hit area (v0.11.1).
+    /// Each button carries a generous 44pt hit area (v0.13.0; was 36pt in v0.11.1).
     private func moveButtons(drill: Drill, in activity: Activity) -> some View {
         HStack(spacing: 6) {
             Button {
@@ -216,7 +301,7 @@ struct PracticeEditorView: View {
             } label: {
                 Image(systemName: "chevron.up")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveUp(in: activity))
@@ -225,7 +310,7 @@ struct PracticeEditorView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveDown(in: activity))
@@ -235,13 +320,6 @@ struct PracticeEditorView: View {
     }
 
     // MARK: - Actions
-
-    private func addDrill(to activity: Activity) {
-        let drill = Drill(title: "New Drill", isScored: false, order: activity.orderedDrills.count)
-        modelContext.insert(drill)
-        activity.drills.append(drill)
-        drillForm = DrillFormViewModel(drill: drill, parentActivity: activity, isCreating: true)
-    }
 
     private func moveActivities(from source: IndexSet, to destination: Int) {
         var items = orderedActivities

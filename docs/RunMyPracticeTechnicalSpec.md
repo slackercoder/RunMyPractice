@@ -4,7 +4,7 @@
 * **Author(s):** [Your Name]
 * **Status:** Draft
 * **Date:** September 10, 2026
-* **Version:** 1.8.1
+* **Version:** 1.11.0
 
 | Version | Date | Description | Author |
 | :--- | :--- | :--- | :--- |
@@ -19,13 +19,16 @@
 | 1.7.0 | 2026-09-29 | M6a: sync backend implemented in the RunMy suite (coach-scoped upsert of practices + sessions, session snapshot tables, coach-ID header auth, X-Coach-Id 401/400/409); v0.10.0: activities reusable — "Add Activity" offers new or copy-of-existing (copy-never-reference rule); activities/drills editable from the practice detail view (4.1, 5, 6 updated) | [Name] |
 | 1.8.0 | 2026-09-30 | v0.11.0: reordering — activities drag-reorder in the practice editor (edit mode) and via up/down controls on the practice view; drills via up/down within their activity in both places; no schema change — Order columns already exist end-to-end (5 updated) | [Name] |
 | 1.8.1 | 2026-09-30 | v0.11.1: larger touch targets — 36pt hit areas on the move/edit icon buttons, bigger row fonts and padding (5 updated) | [Name] |
+| 1.9.0 | 2026-10-01 | v0.12.0: drill library — a new Drills tab holding reusable drills kept separately from any practice (list/search/create/edit/delete); the practice editor's "Add Drill" offers start-new or copy-from-library (copy-never-reference); sync via new coach-scoped POST /api/v1/sync/drill-libraries complete-state upsert (4.1, 5, 6 updated) | [Name] |
+| 1.10.0 | 2026-10-02 | v0.13.0: explicit delete with confirmation — red trash buttons on activity and drill rows in the practice editor and practice view (swipes no longer the only path); all row icon buttons bumped to 44pt hit areas (v0.11.1's 36pt standard, per coach feedback), plus swipe-to-delete for whole templates in the Practices list; deletes remove only this coach's own copies (copy-never-reference), and deleting an activity cascades to its drills; fixed the drill form presenting blank right after the add-drill picker dismissed (5 updated) | [Name] |
+| 1.11.0 | 2026-10-02 | v0.14.0: client sync worker — a `SyncService` performs an idempotent full-state push (all practices + complete drill library + completed, unsynced sessions) to the M6a API using `X-Coach-Id` from an auto-generated `CoachIdentity` row (the future sign-in seam); auto-sync on app open/foreground when anything is unsynced, plus a manual Sync button and status line on the Practices tab; known gap: deleted practices/sessions are not reconciled server-side (drill-library deletes are) (2, 5 updated) | [Name] |
 
 ---
 
 ## 2. System Architecture & High-Level Design
 * **Architectural Pattern:** Offline-First Client/Server architecture. 
 * **Client Architecture:** MVVM (Model-View-ViewModel) using SwiftUI and SwiftData for unified local state management.
-* **Sync Strategy:** The local SwiftData container acts as the single source of truth for the user interface. A local background worker monitors network availability and manages an idempotent, unidirectional (push-only) queue to transmit structural practice records to a `.NET Web API`.
+* **Sync Strategy:** The local SwiftData container acts as the single source of truth for the user interface. A local `SyncService` acts as an idempotent, unidirectional (push-only) full-state worker: on app open or foreground it transmits every local record lacking a server ID (all practices, the complete drill library, and completed run sessions) to the `.NET Web API`, then backfills the returned server IDs and marks those sessions as synced. There is no persistent background queue — sync is foreground-triggered and skipped entirely when nothing is pending; in-progress sessions are never transmitted.
 * **Data Privacy Boundaries:** Zero PII storage. Athletes are assigned unique strings (e.g., nicknames, position codes like "Lead A", or random numbers) configured directly by the coach. 
 
 ---
@@ -129,6 +132,40 @@ var runNotes: String? // Field notes for this run (v0.9.1): coach observations m
         self.pointStep = pointStep
         self.isCoachDrill = isCoachDrill
         self.order = order
+        self.createdBy = createdBy
+        self.createDate = Date()
+    }
+}
+
+// A reusable drill kept in the coach's library (v0.12.0) — a drill stored
+// separately from any practice, so it can be built once and dropped into any
+// activity when assembling a practice. Deliberately has no `order` (position
+// only exists inside an activity) and no `runNotes` (field notes belong to
+// executed runs only, v0.9.1). Copy-never-reference (v0.10.0 rule): adding a
+// library drill to an activity copies it into a fresh `Drill`.
+@Model
+final class DrillLibrary {
+    @Attribute(.unique) var id: UUID
+    var remoteId: Int?
+    var title: String // E.g., "Progressive Slides", "Draw to the Button"
+    var drillDescription: String?
+    var notes: String? // Coach notes: setup, cues, what to watch for
+    var isScored: Bool // false = acknowledgement check-box only
+    var maxPoints: Int? // E.g., 10
+    var pointStep: Int? // E.g., 2 -> UI renders choice matrix: [0, 2, 4, 6, 8, 10]
+    var isCoachDrill: Bool // Coach-only drill, hidden from athlete-facing views
+    var createdBy: String?
+    var createDate: Date
+
+    init(title: String, drillDescription: String? = nil, notes: String? = nil, isScored: Bool, maxPoints: Int? = nil, pointStep: Int? = nil, isCoachDrill: Bool = false, createdBy: String? = nil) {
+        self.id = UUID()
+        self.title = title
+        self.drillDescription = drillDescription
+        self.notes = notes
+        self.isScored = isScored
+        self.maxPoints = maxPoints
+        self.pointStep = pointStep
+        self.isCoachDrill = isCoachDrill
         self.createdBy = createdBy
         self.createDate = Date()
     }
@@ -430,8 +467,10 @@ func generateScoreOptions(max: Int, step: Int) -> [Int] {
 * **Graded Drill (`isScored == true`):** Loops through the `PracticeSessionTeam` entries for the current session. Renders an adaptive grid item or selector containing the generated integer increments from the step calculations; a selection creates/updates a `TeamScore` record linking that team, the drill, and the chosen score.
 * **Coach Notes (v0.6.0):** Each drill card renders the drill's `notes` (coach setup/cue text) under the description in the practice detail view and the live execute screen; a finished run's read-only review shows the notes as snapshotted at run time.
 * **Run Field Notes (v0.9.1):** Each drill card on the live execute screen also carries an editable `runNotes` field — the coach's journal for that drill *during this run* (form cues, corrections, who to watch). It is never present on template drills and always starts nil in a new session, so each execution records its own observations; the run review shows them alongside the snapshotted `notes`.
+* **Drill Library (v0.12.0):** A dedicated Drills tab lists the coach's library drills — title with an "N pts" / "check-off" scoring summary and a "coach-only" marker — with search, add, and swipe-to-delete (confirm dialog); a row tap opens the drill form directly (no detail view: a drill is fully described by its form). In the practice editor, "Add Drill" offers the same choice activities do: start a new drill, or pick one from the library; picking copies it into the activity under a fresh client UUID (never a reference) and opens the form so the new row can be renamed on the spot.
 * **Player Standings (v0.7.0):** The Players tab renders each player's current points total — every point a team they were on scored, plus solo scores, from runs after the latest `StandingsReset` marker — with sort by label or by points (leaderboard) and a one-tap reset (optional note).
 * **Activity Reuse (v0.10.0):** "Add Activity" in the practice editor offers two choices — start a new activity, or choose one from the coach's other practices, which **copies** it (the activity and every drill, under fresh client UUIDs, `remoteId` nil) into the practice being edited; the copy syncs as its own records, and editing it can never affect the original. Activities and drills are also directly editable from the practice detail view via pencil buttons that open the same form sheets.
+* **Deletion (v0.13.0):** Activities and drills delete via a red trash button with a confirmation dialog in both the practice editor and the practice view; the Practices list offers swipe-to-delete (confirm) for whole templates, alongside the practice view's toolbar delete. Every delete removes only this coach's own copies (copy-never-reference) — the drill library, other practices' copies, and recorded runs (frozen snapshots) are untouched; deleting an activity cascades to its drills.
 * **Reordering (v0.11.0):** Activities reorder by drag in the practice editor (edit mode) and by up/down controls on the practice view; drills reorder within their activity by up/down controls in both places. A move swaps with the neighbor and reindexes the sequential 0...n-1 `order` values, which the session snapshots at run start (v0.5.0), so a run executes in the saved order. No schema change was needed — `order` already exists on `Activity`, `Drill`, and both session-snapshot tables, and sync upserts the full state (Section 6).
 
 ---
@@ -536,11 +575,14 @@ The server responds with the `id` → `remoteId` mapping for every record it per
 ### Push Sync Endpoint: POST `/api/v1/sync/practices`
 The template side of sync (M6a, shipped in the RunMy suite as `Practice.Api`): accepts a list of `SyncPracticesRequest` records — the complete current state of each `Practice` with its nested `activities` (each with `drills`) — and upserts them coach-scoped by client UUID (upsert = full replace), so a practice creates on first sync and updates on every later edit. It responds with the same `id` → `remoteId` mapping shape (practice, activity, drill), which the client backfills on the template records.
 
-Both endpoints require the calling coach's identity in the `X-Coach-Id` request header and scope every read and write to it; the API answers 401 when the header is absent or malformed and 400 on an invalid payload.
+### Push Sync Endpoint: POST `/api/v1/sync/drill-libraries`
+The library side of sync (v0.12.0): accepts the coach's **complete** standalone drill library — a flat list of `SyncDrillLibraryRequest` records (title, description, coach notes, scoring configuration, coach-only flag; deliberately no `order`, no run notes) — and upserts it coach-scoped by client UUID, *deleting* any library rows the batch does not contain (the client always sends its whole library, so an empty batch clears it). It responds with the same `id` → `remoteId` mapping shape, which the client backfills on its `DrillLibrary` records.
+
+These endpoints require the calling coach's identity in the `X-Coach-Id` request header and scope every read and write to it; the API answers 401 when the header is absent or malformed and 400 on an invalid payload.
 
 ---
 
-## 7. Risks, Constraints, and Assumptions
-* **Dual-Key Sync Strategy:** Because the backend uses `INT IDENTITY` primary keys while the offline-first client must create valid local records without network access, every synced entity carries both a client-generated `id: UUID` and a server-assigned `remoteId: Int?`. The sync layer must upsert by `id` and backfill `remoteId` from the server's response; any endpoint or query that assumes a single canonical key (e.g. deep links, push notification payloads referencing a record) needs to standardize on `id` until sync completes.
+## 7. Risks, Constraints, and Assumptions
+* **Dual-Key Sync Strategy:** Because the backend uses `INT IDENTITY` primary keys while the offline-first client must create valid local records without network access, every synced entity carries both a client-generated `id: UUID` and a server-assigned `remoteId: Int?`. The sync layer must upsert by `id` and backfill `remoteId` from the server's response; any endpoint or query that assumes a single canonical key (e.g. deep links, push notification payloads referencing a record) needs to standardize on `id` until sync completes.
 * **Practice/Template Editing — resolved (v0.5.0):** Sessions snapshot the plan (activities + drills) and the participating group (as values) at run start, so editing or deleting a `Practice` template, or a roster team/player, after sessions have run never rewrites or destroys recorded runs. The session's `practice` reference and `PracticeSessionTeam.sourceTeamID`/`soloPlayerID` are provenance-only plain values. Remaining work: server-side storage of the plan snapshot (Section 6), finalized in M6.
 * **Ownership and sharing:** Roster records (players, teams) are private to the coach who created them (`createdBy` is the local ownership anchor; they become scoped to the signed-in user once auth lands). Practices are shareable templates — another coach can import a practice and run it with their own groups. Sessions are private run records; the payload carries group *labels* (not just IDs), so a cross-user run needs no roster ID resolution.

@@ -4,8 +4,11 @@ import SwiftData
 /// Entry point for the RunMy Practice app.
 ///
 /// Offline-first (Technical Spec §2): the local SwiftData container is the
-/// single source of truth for the UI. There is no authentication in the MVP;
-/// all data lives on-device until the sync layer (M5) is added.
+/// single source of truth for the UI. There is no authentication in the MVP.
+/// The sync worker (M6b, `Sync/`) pushes the coach's data to the Practice
+/// sync API when it's reachable — created here, injected into the view
+/// hierarchy as an environment object — while every record stays usable
+/// on-device whether or not the API is up.
 ///
 /// The container is built **explicitly** here (rather than with the
 /// `.modelContainer(for:)` scene modifier) because the explicit path enables
@@ -19,11 +22,15 @@ import SwiftData
 struct RunMyPracticeApp: App {
     @State private var container: ModelContainer?
     @State private var storeProblem: String?
+    @State private var syncService: SyncService?
 
     init() {
         let result = Self.makeContainer()
         _container = State(initialValue: result.container)
         _storeProblem = State(initialValue: result.problem)
+        if let container = result.container {
+            _syncService = State(initialValue: Self.makeSyncService(for: container))
+        }
     }
 
     var body: some Scene {
@@ -34,9 +41,10 @@ struct RunMyPracticeApp: App {
 
     @ViewBuilder
     private var rootContent: some View {
-        if let container {
+        if let container, let syncService {
             RootView()
                 .modelContainer(container)
+                .environment(syncService)
         } else if let storeProblem {
             StoreProblemView(problem: storeProblem) {
                 resetStoreAndRetry()
@@ -53,11 +61,11 @@ struct RunMyPracticeApp: App {
     private static func makeContainer() -> (container: ModelContainer?, problem: String?) {
         do {
             let container = try ModelContainer(
-                for: Practice.self, Activity.self, Drill.self,
+                for: Practice.self, Activity.self, Drill.self, DrillLibrary.self,
                      Team.self, Player.self,
                      PracticeSession.self, PracticeSessionTeam.self,
                      TeamScore.self, DrillAcknowledgement.self,
-                     StandingsReset.self,
+                     StandingsReset.self, CoachIdentity.self,
                 configurations: ModelConfiguration()
             )
             container.mainContext.autosaveEnabled = true
@@ -79,15 +87,16 @@ struct RunMyPracticeApp: App {
             let storeURL = ModelConfiguration().url
             Self.deleteStoreFiles(at: storeURL)
             let newContainer = try ModelContainer(
-                for: Practice.self, Activity.self, Drill.self,
+                for: Practice.self, Activity.self, Drill.self, DrillLibrary.self,
                      Team.self, Player.self,
                      PracticeSession.self, PracticeSessionTeam.self,
                      TeamScore.self, DrillAcknowledgement.self,
-                     StandingsReset.self,
+                     StandingsReset.self, CoachIdentity.self,
                 configurations: ModelConfiguration()
             )
             newContainer.mainContext.autosaveEnabled = true
             container = newContainer
+            syncService = Self.makeSyncService(for: newContainer)
             storeProblem = nil
         } catch {
             storeProblem = "Starting with fresh data didn't work — the store still couldn't be created.\n\n(\(error.localizedDescription))"
@@ -123,7 +132,29 @@ struct RunMyPracticeApp: App {
     private func retryOpen() {
         let result = Self.makeContainer()
         container = result.container
+        syncService = result.container.map(Self.makeSyncService)
         storeProblem = result.problem
+    }
+
+    /// Builds the sync worker for a fresh container: finds (or creates) the
+    /// `CoachIdentity` row first, then wires the worker to the main context.
+    private static func makeSyncService(for container: ModelContainer) -> SyncService {
+        let coachId = ensureCoachIdentity(in: container.mainContext)
+        return SyncService(modelContext: container.mainContext, coachId: coachId)
+    }
+
+    /// Finds the local `CoachIdentity` row, creating it on first launch.
+    /// The row's `coachId` is the device-generated value sent as
+    /// `X-Coach-Id` on every sync request; when sign-in lands this becomes
+    /// the seam for the signed-in user's identity.
+    private static func ensureCoachIdentity(in context: ModelContext) -> UUID {
+        if let existing = (try? context.fetch(FetchDescriptor<CoachIdentity>()))?.first {
+            return existing.coachId
+        }
+        let identity = CoachIdentity()
+        context.insert(identity)
+        try? context.save()
+        return identity.coachId
     }
 }
 

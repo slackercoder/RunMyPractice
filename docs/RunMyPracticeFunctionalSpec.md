@@ -51,6 +51,7 @@
 * **Acceptance Criteria:**
   * Creating a practice using the tools provided.
   * Adding an activity offers a choice: start a new one, or choose an existing one from another practice (which copies it into the new practice rather than referencing the original).
+  * Adding a drill to an activity offers the same choice: start a new one, or choose an existing one from the coach's drill library (which copies it into the activity rather than referencing the original).
 
 ### 5.4 View/Execute Practice
 * **Description** How users view/execute a new practice.
@@ -67,12 +68,22 @@
   * Being able to add a new player/athlete
   * Being able to remove a player/athlete
 
+### 5.6 Drill Library
+* **Description** The coach's reusable drill collection, kept separately from any practice. A drill is built once, then copied into activities when assembling a practice.
+* **Acceptance Criteria:**
+  * A dedicated Drills tab lists the coach's library drills (title, scoring summary, coach-only marker).
+  * Being able to add a new drill to the library.
+  * Being able to edit a library drill (row tap opens the drill form).
+  * Being able to remove a library drill from the list.
+  * Being able to search the library by drill name or description.
+
 ## 6. User Experience (UX) & User Interface (UI)
 * **User Flows:** 
   * **Create Practice Flow:** Start at home page. Click/Tap `Create New Practice` button. Enter view to create a practice.
-  * **Edit Practice Flow:** Full view of editting a practice, whether an existing practice or a "new" blank practice. Adding an activity offers a choice: start a new one, or choose and copy an existing one from another practice.
+  * **Edit Practice Flow:** Full view of editting a practice, whether an existing practice or a "new" blank practice. Adding an activity offers a choice: start a new one, or choose and copy an existing one from another practice. Adding a drill offers the same choice: start a new one, or choose and copy an existing one from the drill library. Activities, drills, and the whole practice can be deleted: every delete asks for confirmation and removes only this coach's own copy — other practices, the drill library, and recorded runs are never affected (v0.13.0).
   * **Execute Practice Flow:** Full view of executing a practice. Allowing the coach to enter data as required (creating teams for exercises, checking off completed tasks, scoring exercises, etc).
   * **User Edit Flow:** View the list of users and either add and/or remove users based on needs.
+  * **Cloud Sync Flow:** The Practices tab shows a Sync button and a small status line above the list. Sync runs automatically the next time the app opens whenever anything is unsynced (a completed run, a practice, or a drill change); the button always forces a run. Status shows whether it is syncing, the last synced time, or a friendly message if the API is unreachable (v0.14.0).
 * **Wireframes/Mockups:** To be determined through discovery.
 * **Design Guidelines:** No design guidelines yet. To be determined through discovery.
 

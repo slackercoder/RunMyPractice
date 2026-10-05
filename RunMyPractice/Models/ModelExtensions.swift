@@ -118,6 +118,39 @@ extension Activity {
     }
 }
 
+extension DrillLibrary {
+    // MARK: - Reuse (v0.12.0)
+
+    /// Copies this library drill into `activity` as a fresh `Drill` record,
+    /// appended after the activity's existing drills, and returns the copy.
+    ///
+    /// **Copy, never reference** (the same rule activities follow, v0.10.0):
+    /// the copy gets a fresh client UUID, `remoteId == nil`, no field notes,
+    /// and a cleared acknowledgement flag — it syncs as its own record, and
+    /// editing it can never touch the library entry. The library drill is a
+    /// *starting point*; practices stay self-contained templates
+    /// (Technical Spec §2).
+    @discardableResult
+    func copy(into activity: Activity, in context: ModelContext) -> Drill {
+        let creator = activity.createdBy ?? createdBy
+        let copy = Drill(
+            title: title,
+            drillDescription: drillDescription,
+            notes: notes,
+            runNotes: nil,
+            isScored: isScored,
+            maxPoints: maxPoints,
+            pointStep: pointStep,
+            isCoachDrill: isCoachDrill,
+            order: activity.orderedDrills.count,
+            createdBy: creator
+        )
+        context.insert(copy)
+        activity.drills.append(copy)
+        return copy
+    }
+}
+
 extension Drill {
     // MARK: - Reordering (v0.11.0)
 

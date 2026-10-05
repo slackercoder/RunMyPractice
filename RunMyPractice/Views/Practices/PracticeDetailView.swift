@@ -40,6 +40,8 @@ struct PracticeDetailView: View {
     @State private var sessionStartProblem: String?
     @State private var activityForm: ActivityFormViewModel?
     @State private var drillForm: DrillFormViewModel?
+    @State private var activityToDelete: Activity?
+    @State private var drillToDelete: Drill?
 
     var body: some View {
         List {
@@ -131,6 +133,52 @@ struct PracticeDetailView: View {
         } message: {
             Text("This removes the practice template. Recorded runs are kept — each keeps a frozen copy of the plan as it was run.")
         }
+        // v0.13.0: confirm before destroying — and reassure about copies.
+        .confirmationDialog(
+            "Delete this activity?",
+            isPresented: Binding(
+                get: { activityToDelete != nil },
+                set: { if !$0 { activityToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let activity = activityToDelete {
+                    modelContext.delete(activity) // drills cascade with their activity
+                    try? modelContext.save()
+                }
+            }
+        } message: {
+            if let activity = activityToDelete {
+                Text("This removes \"\(activity.title)\" and its \(activity.orderedDrills.count) drill\(activity.orderedDrills.count == 1 ? "" : "s") from this practice only — other practices and the drill library keep their own copies.")
+            }
+        }
+        .confirmationDialog(
+            "Delete this drill?",
+            isPresented: Binding(
+                get: { drillToDelete != nil },
+                set: { if !$0 { drillToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let drill = drillToDelete else { return }
+                // Copy-never-reference: remove this practice's copy only; a
+                // library drill of the same name and other practices' copies
+                // are untouched.
+                if let activity = practice.orderedActivities.first(where: {
+                    $0.drills.contains(where: { $0.id == drill.id })
+                }) {
+                    activity.drills.removeAll { $0.id == drill.id }
+                }
+                modelContext.delete(drill)
+                try? modelContext.save()
+            }
+        } message: {
+            if let drill = drillToDelete {
+                Text("This removes \"\(drill.title)\" from this practice only — the drill library and other practices keep their own copies.")
+            }
+        }
         .sheet(item: $activityForm) { viewModel in
             ActivityFormView(viewModel: viewModel)
         }
@@ -178,10 +226,20 @@ struct PracticeDetailView: View {
                 } label: {
                     Image(systemName: "pencil")
                         .font(.title3)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Edit \(activity.title)")
+                // v0.13.0: explicit delete with confirmation (drills cascade).
+                Button {
+                    activityToDelete = activity
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.title3)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Delete \(activity.title)")
             }
             if let description = activity.activityDescription, !description.isEmpty {
                 Text(description)
@@ -218,10 +276,20 @@ struct PracticeDetailView: View {
             } label: {
                 Image(systemName: "pencil")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("Edit \(drill.title)")
+            // v0.13.0: explicit delete with confirmation.
+            Button {
+                drillToDelete = drill
+            } label: {
+                Image(systemName: "trash")
+                    .font(.title3)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Delete \(drill.title)")
         }
         .padding(.vertical, 4)
     }
@@ -238,7 +306,7 @@ struct PracticeDetailView: View {
             } label: {
                 Image(systemName: "chevron.up")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!activity.canMoveUp(in: practice))
@@ -247,7 +315,7 @@ struct PracticeDetailView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!activity.canMoveDown(in: practice))
@@ -263,7 +331,7 @@ struct PracticeDetailView: View {
             } label: {
                 Image(systemName: "chevron.up")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveUp(in: activity))
@@ -272,7 +340,7 @@ struct PracticeDetailView: View {
             } label: {
                 Image(systemName: "chevron.down")
                     .font(.title3)
-                    .frame(width: 36, height: 36)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .disabled(!drill.canMoveDown(in: activity))
@@ -306,8 +374,10 @@ struct PracticeDetailView: View {
         // Delete activities explicitly (drills cascade with their activity).
         // Recorded runs are safe (v0.5.0): sessions keep their own frozen plan
         // snapshot, and their `practice` reference (provenance only) is
-        // nullified by the template deletion. NOTE (M6): when sync lands,
-        // template deletion must be handled explicitly server-side.
+        // nullified by the template deletion. The template's activities and
+        // drills are this coach's own copies (copy-never-reference), so the
+        // drill library and other coaches' copies are untouched. NOTE (M6): when
+        // sync lands, template deletion must be handled explicitly server-side.
         for activity in practice.activities {
             modelContext.delete(activity)
         }
